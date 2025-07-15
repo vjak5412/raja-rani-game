@@ -3,53 +3,112 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Raja Rani Online Game</title>
+  <title>Raja Rani - Online Multiplayer Game</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
+      margin: 0;
+      font-family: 'Nunito', sans-serif;
+      background: linear-gradient(135deg, #f3e5f5, #e1f5fe);
+      min-height: 100vh;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
       padding: 20px;
     }
     .card {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      max-width: 420px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      max-width: 500px;
       width: 100%;
       margin-bottom: 20px;
+      animation: fadeInUp 0.5s ease;
     }
-    h2 {
+    h2, h3 {
       margin-top: 0;
+      color: #333;
     }
-    input, button, select, textarea {
+    input, button, select {
       width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      margin-bottom: 10px;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 16px;
+      border-radius: 8px;
       border: 1px solid #ccc;
-      border-radius: 5px;
     }
-    .log, .chatlog {
-      background: #eee;
-      padding: 10px;
-      height: 150px;
+    button {
+      background: linear-gradient(to right, #8e24aa, #3949ab);
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: linear-gradient(to right, #7b1fa2, #303f9f);
+    }
+    .log, .chatlog, .scoreboard, .player-table {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 14px;
       overflow-y: auto;
-      border-radius: 5px;
-      font-size: 14px;
-    }
-    .scoreboard {
-      margin-top: 10px;
-      font-size: 14px;
-      background: #fffbe6;
-      padding: 10px;
-      border-radius: 5px;
+      max-height: 200px;
     }
     .chat-section {
-      margin-top: 10px;
+      margin-top: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    .player-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .player-table th, .player-table td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    .flip-card {
+      background-color: transparent;
+      width: 100%;
+      perspective: 1000px;
+    }
+    .flip-card-inner {
+      position: relative;
+      width: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    .flip-card.flipped .flip-card-inner {
+      transform: rotateY(180deg);
+    }
+    .flip-card-front, .flip-card-back {
+      position: absolute;
+      width: 100%;
+      backface-visibility: hidden;
+      padding: 20px;
+      border-radius: 16px;
+      background: white;
+    }
+    .flip-card-back {
+      transform: rotateY(180deg);
+    }
+    @keyframes fadeInUp {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
 </head>
@@ -57,37 +116,41 @@
   <div class="card" id="setupCard">
     <h2>Raja Rani - Online</h2>
     <input id="playerName" placeholder="Enter your name" />
-    <label>Choose number of rounds (if creating room):</label>
-    <select id="roundsSelect">
-      <option value="5">5</option>
-      <option value="7">7</option>
-      <option value="10">10</option>
-      <option value="15">15</option>
-    </select>
     <button onclick="createRoom()">Create Room</button>
-    <input id="joinCode" placeholder="or Join Room Code" />
+    <input id="joinCode" placeholder="Or enter room code to join" />
     <button onclick="joinRoom()">Join Room</button>
   </div>
 
-  <div class="card" id="waitingCard" style="display:none">
+  <div class="card hidden" id="waitingCard">
     <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
-    <p>Players Joined:</p>
     <ul id="playerList"></ul>
     <button onclick="startGame()">Start Game</button>
   </div>
 
-  <div class="card" id="roleCard" style="display:none">
+  <div class="card hidden" id="roleCard">
     <h2>Hello <span id="nameDisplay"></span></h2>
-    <p>Your role (Round <span id="roundNum1"></span>): <strong id="yourRole"></strong></p>
+    <p>Round <span id="roundNum1"></span></p>
+    <div class="flip-card" id="roleFlipCard">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <p>Click below to view your role</p>
+          <button onclick="flipCard()">View My Role</button>
+        </div>
+        <div class="flip-card-back">
+          <p>Your Role: <strong id="yourRole"></strong></p>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="card" id="gameCard" style="display:none">
+  <div class="card hidden" id="gameCard">
     <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
     <p>Guess who is <strong id="guessRole"></strong></p>
     <select id="guessInput"></select>
     <button onclick="makeGuess()">Submit Guess</button>
     <div class="log" id="logBox"></div>
     <div class="scoreboard" id="scoreboardBox"></div>
+    <div class="player-table" id="roundTableBox"></div>
     <div class="chat-section">
       <h3>Chat</h3>
       <div class="chatlog" id="chatLog"></div>
@@ -96,146 +159,14 @@
     </div>
   </div>
 
-  <div class="card" id="endCard" style="display:none">
+  <div class="card hidden" id="endCard">
     <h2>Game Over - Round <span id="finalRound"></span></h2>
     <div class="log" id="finalLog"></div>
     <div class="scoreboard" id="finalScores"></div>
     <button id="nextRoundBtn" onclick="startNextRound()" style="display:none">Start Next Round</button>
   </div>
 
-  <script>
-    const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com"); // Change this to your actual WebSocket URL
-    let playerName = '';
-    let playerId = crypto.randomUUID();
-    let roomCode = '';
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === 'room_created') {
-        roomCode = data.roomCode;
-        document.getElementById('setupCard').style.display = 'none';
-        document.getElementById('waitingCard').style.display = 'block';
-        document.getElementById('roomCodeDisplay').textContent = roomCode;
-        document.getElementById('playerList').innerHTML = `<li>${playerName}</li>`;
-      }
-
-      if (data.type === 'player_joined') {
-        document.getElementById('playerList').innerHTML = data.players.map(name => `<li>${name}</li>`).join('');
-      }
-
-      if (data.type === 'your_role') {
-        document.getElementById('waitingCard').style.display = 'none';
-        document.getElementById('roleCard').style.display = 'block';
-        document.getElementById('nameDisplay').textContent = data.name;
-        document.getElementById('yourRole').textContent = data.role;
-        document.getElementById('roundNum1').textContent = data.round;
-        setTimeout(() => {
-          document.getElementById('roleCard').style.display = 'none';
-        }, 4000);
-      }
-
-      if (data.type === 'start_chain') {
-        updateGameCard(data);
-      }
-
-      if (data.type === 'chain_update') {
-        updateGameCard(data);
-        appendLog(data.log[data.log.length - 1]);
-      }
-
-      if (data.type === 'game_over') {
-        document.getElementById('gameCard').style.display = 'none';
-        document.getElementById('endCard').style.display = 'block';
-        document.getElementById('finalRound').textContent = data.round;
-        document.getElementById('finalLog').innerHTML = data.log.map(line => `<p>${line}</p>`).join('');
-        updateScoreboard(data.scoreboard, 'finalScores');
-        document.getElementById('nextRoundBtn').style.display = data.canStartNext ? 'block' : 'none';
-      }
-
-      if (data.type === 'chat') {
-        const chatLog = document.getElementById('chatLog');
-        const timestamp = new Date(data.time).toLocaleTimeString();
-        chatLog.innerHTML += `<p><strong>${data.name}</strong> [${timestamp}]: ${data.text}</p>`;
-        chatLog.scrollTop = chatLog.scrollHeight;
-      }
-    };
-
-    function createRoom() {
-      playerName = document.getElementById('playerName').value.trim();
-      const maxRounds = parseInt(document.getElementById('roundsSelect').value);
-      if (!playerName) return alert('Enter your name');
-      socket.send(JSON.stringify({ type: 'create_room', name: playerName, id: playerId, maxRounds }));
-    }
-
-    function joinRoom() {
-      playerName = document.getElementById('playerName').value.trim();
-      roomCode = document.getElementById('joinCode').value.trim();
-      if (!playerName || !roomCode) return alert('Enter name and code');
-      socket.send(JSON.stringify({ type: 'join_room', name: playerName, roomCode, id: playerId }));
-      document.getElementById('setupCard').style.display = 'none';
-      document.getElementById('waitingCard').style.display = 'block';
-      document.getElementById('roomCodeDisplay').textContent = roomCode;
-    }
-
-    function startGame() {
-      socket.send(JSON.stringify({ type: 'start_game', roomCode }));
-    }
-
-    function startNextRound() {
-      socket.send(JSON.stringify({ type: 'start_next_round', roomCode }));
-      document.getElementById('endCard').style.display = 'none';
-    }
-
-    function updateGameCard(data) {
-      document.getElementById('roleCard').style.display = 'none';
-      document.getElementById('gameCard').style.display = 'block';
-      document.getElementById('guessRole').textContent = data.nextRole;
-      document.getElementById('turnPlayer').textContent = data.turnPlayer;
-      document.getElementById('roundNum2').textContent = data.round;
-
-      document.getElementById('guessInput').disabled = playerName !== data.turnPlayer;
-      document.querySelector('button[onclick="makeGuess()"]').disabled = playerName !== data.turnPlayer;
-
-      const guessInput = document.getElementById('guessInput');
-      guessInput.innerHTML = '';
-      const names = Array.from(document.querySelectorAll('#playerList li')).map(li => li.textContent);
-      names.forEach(name => {
-        if (name !== playerName) {
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = name;
-          guessInput.appendChild(opt);
-        }
-      });
-
-      updateScoreboard(data.scoreboard, 'scoreboardBox');
-    }
-
-    function makeGuess() {
-      const guess = document.getElementById('guessInput').value;
-      socket.send(JSON.stringify({ type: 'guess', roomCode, id: playerId, guess }));
-    }
-
-    function sendChat() {
-      const input = document.getElementById('chatInput');
-      const text = input.value.trim();
-      if (!text) return;
-      socket.send(JSON.stringify({ type: 'chat', roomCode, name: playerName, text }));
-      input.value = '';
-    }
-
-    function appendLog(text) {
-      const logBox = document.getElementById('logBox');
-      logBox.innerHTML += `<p>${text}</p>`;
-      logBox.scrollTop = logBox.scrollHeight;
-    }
-
-    function updateScoreboard(scores, elementId) {
-      const box = document.getElementById(elementId);
-      box.innerHTML = `<strong>Scoreboard</strong><ul>` +
-        scores.map(s => `<li>${s.name}: ${s.score}</li>`).join('') + `</ul>`;
-    }
-  </script>
+  <!-- JavaScript Logic Here -->
+  <script src="./client.js"></script>
 </body>
 </html>
