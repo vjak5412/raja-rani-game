@@ -1,3 +1,4 @@
+// server.js — Raja Rani Multiplayer Game WebSocket Server with Chat and Round Logic
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
@@ -14,7 +15,7 @@ const roleMap = {
   8: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Nai", "Thirudan"]
 };
 
-const roleScores = {
+const rolePoints = {
   Raja: 5000,
   Rani: 3000,
   Mantiri: 1500,
@@ -25,12 +26,12 @@ const roleScores = {
   Thirudan: 0
 };
 
-function shuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return array;
+  return arr;
 }
 
 function broadcast(roomCode, message) {
@@ -54,12 +55,13 @@ wss.on('connection', (ws) => {
           admin: data.name,
           players: [{ name: data.name, ws, role: null, id: data.id, score: 0 }],
           stage: 'waiting',
+          currentTurn: 0,
           chainIndex: 0,
           chainLog: [],
           chatLog: [],
           round: 1,
-          maxRounds: 5,
-          roundTable: []
+          roundRecords: [],
+          maxRounds: 5
         };
         ws.send(JSON.stringify({ type: 'room_created', roomCode }));
       }
@@ -98,7 +100,8 @@ wss.on('connection', (ws) => {
         room.chainIndex = 0;
         room.currentTurn = players.findIndex(p => p.role === 'Raja');
         room.chainLog = [];
-        room.roundTable.push({ round: room.round, scores: [] });
+        room.roundRecords.push({});
+
         broadcast(data.roomCode, {
           type: 'start_chain',
           nextRole: roleMap[players.length][1],
@@ -118,10 +121,15 @@ wss.on('connection', (ws) => {
         const guessed = players.find(p => p.name === data.guess);
         const actual = players.find(p => p.role === currentRole);
 
+        if (!guessed) {
+          guesser.ws.send(JSON.stringify({ type: 'error', message: 'Invalid guess' }));
+          return;
+        }
+
         let result = '';
         if (guessed.role === currentRole) {
           result = `${guesser.name} guessed correctly: ${guessed.name} is ${currentRole}`;
-          guesser.score += roleScores[currentRole];
+          guesser.score += 1;
           room.chainIndex++;
           room.currentTurn = players.findIndex(p => p.name === guessed.name);
         } else {
@@ -133,14 +141,17 @@ wss.on('connection', (ws) => {
         room.chainLog.push(result);
 
         if (room.chainIndex >= roleMap[players.length].length - 1) {
-          room.roundTable[room.roundTable.length - 1].scores = players.map(p => ({ name: p.name, score: p.score }));
+          players.forEach(p => {
+            const roleScore = rolePoints[p.role] || 0;
+            p.score += roleScore;
+          });
           broadcast(data.roomCode, {
             type: 'game_over',
             log: room.chainLog,
             scoreboard: players.map(p => ({ name: p.name, score: p.score })),
             round: room.round,
-            table: room.roundTable,
-            canStartNext: room.round < room.maxRounds
+            canStartNext: room.round < room.maxRounds,
+            roundTable: players.map(p => ({ name: p.name, role: p.role, score: p.score }))
           });
         } else {
           broadcast(data.roomCode, {
@@ -175,8 +186,6 @@ wss.on('connection', (ws) => {
 
         room.stage = 'playing';
         room.currentTurn = room.players.findIndex(p => p.role === 'Raja');
-        room.roundTable.push({ round: room.round, scores: [] });
-
         broadcast(data.roomCode, {
           type: 'start_chain',
           nextRole: roleMap[room.players.length][1],
