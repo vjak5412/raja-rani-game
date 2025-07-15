@@ -1,10 +1,9 @@
-<!-- Save this as index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Raja Rani - Online Multiplayer Game</title>
+  <title>Raja Rani Multiplayer Game</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
@@ -12,18 +11,19 @@
       margin: 0;
       font-family: 'Nunito', sans-serif;
       background: linear-gradient(135deg, #f3e5f5, #e1f5fe);
-      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
+      flex-direction: column;
       padding: 20px;
+      min-height: 100vh;
     }
     .card {
       background: rgba(255, 255, 255, 0.95);
       border-radius: 16px;
       padding: 30px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      max-width: 500px;
+      max-width: 600px;
       width: 100%;
       margin-bottom: 20px;
       animation: fadeInUp 0.5s ease;
@@ -101,6 +101,14 @@
       0% { opacity: 0; transform: translateY(20px); }
       100% { opacity: 1; transform: translateY(0); }
     }
+    .button-group button {
+      width: auto;
+      margin-right: 10px;
+      padding: 10px 20px;
+    }
+    .button-continue { background: orange; }
+    .button-exit { background: crimson; }
+    .button-start { background: green; }
   </style>
 </head>
 <body>
@@ -124,7 +132,7 @@
     <div class="flip-card" id="roleFlipCard">
       <div class="flip-card-inner">
         <div class="flip-card-front">
-          <p>Click below to view your role</p>
+          <p>Your role was shown. Click below to view again:</p>
           <button onclick="flipCard()">View My Role</button>
         </div>
         <div class="flip-card-back">
@@ -154,10 +162,17 @@
     <h2>Game Over - Round <span id="finalRound"></span></h2>
     <div class="log" id="finalLog"></div>
     <div class="scoreboard" id="finalScores"></div>
-    <button id="nextRoundBtn" onclick="startNextRound()" style="display:none">Start Next Round</button>
+    <div class="button-group">
+      <button class="button-continue" onclick="continueGame()">Continue</button>
+      <button class="button-exit" onclick="exitGame()">Exit</button>
+      <button class="button-start hidden" id="startNextBtn" onclick="startNextRound()">Start</button>
+    </div>
   </div>
 
-  <!-- JavaScript Logic Here -->
+  <!-- Load client logic script -->
   <script src="./client.js"></script>
+</body>
+</html>
+nt.js"></script>
 </body>
 </html>
