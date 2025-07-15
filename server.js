@@ -1,9 +1,17 @@
-// server.js — Raja Rani Multiplayer Game WebSocket Server with Chat and Round Config
+// server.js — Raja Rani Multiplayer Game WebSocket Server for Railway
+const express = require('express');
+const http = require('http');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
-const wss = new WebSocket.Server({ port: 8080 });
-console.log('🟢 WebSocket server running on port 8080');
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+  console.log(`🟢 WebSocket server running on port ${PORT}`);
+});
 
 const rooms = {};
 
@@ -190,7 +198,7 @@ wss.on('connection', (ws) => {
       }
 
     } catch (err) {
-      console.error('Invalid message received:', msg);
+      console.error('❌ Invalid message received:', msg);
     }
   });
 
