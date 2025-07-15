@@ -1,15 +1,25 @@
 {
-  "name": "raja-rani-online",
+  "name": "raja-rani-game",
   "version": "1.0.0",
-  "description": "Multiplayer Raja Rani Game with chat, rounds, animations and scoreboard",
+  "description": "Online Multiplayer Raja Rani Game with Real-Time Chat and Scoring",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "author": "YourName",
-  "license": "MIT",
+  "keywords": [
+    "raja-rani",
+    "multiplayer",
+    "websocket",
+    "chat",
+    "game"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
   "dependencies": {
     "uuid": "^9.0.0",
-    "ws": "^8.15.1"
+    "ws": "^8.13.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
