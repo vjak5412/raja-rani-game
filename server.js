@@ -1,34 +1,36 @@
-// server.js — Raja Rani Multiplayer Game WebSocket Server for Railway
-const express = require('express');
-const http = require('http');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log(`🟢 WebSocket server running on port ${PORT}`);
-});
+const wss = new WebSocket.Server({ port: 8080 });
+console.log('🟢 WebSocket server running on port 8080');
 
 const rooms = {};
 
 const roleMap = {
-  4: ["Raja", "Rani", "Mantri", "Thirudan"],
-  5: ["Raja", "Rani", "Mantri", "Police", "Thirudan"],
-  6: ["Raja", "Rani", "Mantri", "Police", "Sippai", "Thirudan"],
-  7: ["Raja", "Rani", "Mantri", "Police", "Sippai", "Sevagan", "Thirudan"],
-  8: ["Raja", "Rani", "Mantri", "Police", "Sippai", "Sevagan", "Nai", "Thirudan"]
+  4: ["Raja", "Rani", "Mantiri", "Thirudan"],
+  5: ["Raja", "Rani", "Mantiri", "Police", "Thirudan"],
+  6: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Thirudan"],
+  7: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Thirudan"],
+  8: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Nai", "Thirudan"]
 };
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
+const roleScores = {
+  Raja: 5000,
+  Rani: 3000,
+  Mantiri: 1500,
+  Police: 1000,
+  Sippai: 500,
+  Sevagan: 300,
+  Nai: 100,
+  Thirudan: 0
+};
+
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [array[i], array[j]] = [array[j], array[i]];
   }
-  return arr;
+  return array;
 }
 
 function broadcast(roomCode, message) {
@@ -52,12 +54,12 @@ wss.on('connection', (ws) => {
           admin: data.name,
           players: [{ name: data.name, ws, role: null, id: data.id, score: 0 }],
           stage: 'waiting',
-          currentTurn: 0,
           chainIndex: 0,
           chainLog: [],
           chatLog: [],
           round: 1,
-          maxRounds: data.maxRounds || 5
+          maxRounds: 5,
+          roundTable: []
         };
         ws.send(JSON.stringify({ type: 'room_created', roomCode }));
       }
@@ -96,6 +98,7 @@ wss.on('connection', (ws) => {
         room.chainIndex = 0;
         room.currentTurn = players.findIndex(p => p.role === 'Raja');
         room.chainLog = [];
+        room.roundTable.push({ round: room.round, scores: [] });
         broadcast(data.roomCode, {
           type: 'start_chain',
           nextRole: roleMap[players.length][1],
@@ -115,15 +118,10 @@ wss.on('connection', (ws) => {
         const guessed = players.find(p => p.name === data.guess);
         const actual = players.find(p => p.role === currentRole);
 
-        if (!guessed) {
-          guesser.ws.send(JSON.stringify({ type: 'error', message: 'Invalid guess' }));
-          return;
-        }
-
         let result = '';
         if (guessed.role === currentRole) {
           result = `${guesser.name} guessed correctly: ${guessed.name} is ${currentRole}`;
-          guesser.score += 1;
+          guesser.score += roleScores[currentRole];
           room.chainIndex++;
           room.currentTurn = players.findIndex(p => p.name === guessed.name);
         } else {
@@ -135,11 +133,13 @@ wss.on('connection', (ws) => {
         room.chainLog.push(result);
 
         if (room.chainIndex >= roleMap[players.length].length - 1) {
+          room.roundTable[room.roundTable.length - 1].scores = players.map(p => ({ name: p.name, score: p.score }));
           broadcast(data.roomCode, {
             type: 'game_over',
             log: room.chainLog,
             scoreboard: players.map(p => ({ name: p.name, score: p.score })),
             round: room.round,
+            table: room.roundTable,
             canStartNext: room.round < room.maxRounds
           });
         } else {
@@ -175,6 +175,8 @@ wss.on('connection', (ws) => {
 
         room.stage = 'playing';
         room.currentTurn = room.players.findIndex(p => p.role === 'Raja');
+        room.roundTable.push({ round: room.round, scores: [] });
+
         broadcast(data.roomCode, {
           type: 'start_chain',
           nextRole: roleMap[room.players.length][1],
@@ -198,7 +200,7 @@ wss.on('connection', (ws) => {
       }
 
     } catch (err) {
-      console.error('❌ Invalid message received:', msg);
+      console.error('Invalid message received:', msg);
     }
   });
 
