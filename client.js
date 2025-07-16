@@ -1,11 +1,10 @@
-// client.js — Handles UI, WebSocket events, and game logic for Raja Rani
-const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com"); // Change this if you host elsewhere
+const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
 
 let playerName = "";
 let playerId = uuidv4();
 let roomCode = "";
 let myRole = "";
-let gameStage = "waiting";
+let isAdmin = false;
 
 // DOM elements
 const joinSection = document.getElementById("joinSection");
@@ -18,9 +17,7 @@ const chainLog = document.getElementById("chainLog");
 const guessInput = document.getElementById("guessInput");
 const submitGuess = document.getElementById("submitGuess");
 const scoreboardDiv = document.getElementById("scoreboard");
-const roundMatrixDiv = document.getElementById("roundMatrix");
 const finalSection = document.getElementById("finalSection");
-const roundTable = document.getElementById("roundTable");
 const finalScoreboard = document.getElementById("finalScoreboard");
 const turnPlayer = document.getElementById("turnPlayer");
 const guessRole = document.getElementById("guessRole");
@@ -44,28 +41,38 @@ function hide(element) {
 
 // Button events
 document.getElementById("createRoom").onclick = () => {
-  playerName = document.getElementById("playerName").value;
+  playerName = document.getElementById("playerName").value.trim();
+  if (!playerName) return alert("Enter your name");
+  isAdmin = true;
   socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
 };
 
 document.getElementById("joinRoom").onclick = () => {
-  playerName = document.getElementById("playerName").value;
-  const code = document.getElementById("roomCode").value;
+  playerName = document.getElementById("playerName").value.trim();
+  const code = document.getElementById("roomCode").value.trim();
+  if (!playerName || !code) return alert("Enter name and room code");
   roomCode = code;
   socket.send(JSON.stringify({ type: "join_room", roomCode: code, name: playerName, id: playerId }));
 };
 
 document.getElementById("startGame").onclick = () => {
-  socket.send(JSON.stringify({ type: "start_game", roomCode }));
+  if (!isAdmin) return alert("Only admin can start the game");
+  socket.send(JSON.stringify({ type: "start_game", roomCode, id: playerId }));
+  document.getElementById("startGame").disabled = true;
 };
 
 viewRoleBtn.onclick = () => {
   show(roleCard);
-  setTimeout(() => hide(roleCard), 4000);
+  viewRoleBtn.disabled = true;
+  setTimeout(() => {
+    hide(roleCard);
+    viewRoleBtn.disabled = false;
+  }, 4000);
 };
 
 submitGuess.onclick = () => {
   const guess = guessInput.value;
+  if (!guess) return alert("Select a player to guess");
   socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
   guessInput.value = "";
 };
@@ -118,7 +125,6 @@ socket.onmessage = (event) => {
   if (data.type === "start_chain") {
     turnPlayer.textContent = data.turnPlayer;
     guessRole.textContent = data.nextRole;
-    show(guessInput);
     updateScoreboard(data.scoreboard);
   }
 
@@ -133,7 +139,6 @@ socket.onmessage = (event) => {
     hide(gameSection);
     show(finalSection);
     finalScoreboard.innerHTML = data.scoreboard.map((p) => `<p>${p.name}: ${p.score}</p>`).join("");
-    renderRoundMatrix(data.roundTable);
   }
 
   if (data.type === "chat") {
@@ -147,17 +152,4 @@ socket.onmessage = (event) => {
 function updateScoreboard(scores) {
   scoreboardDiv.innerHTML = "<h3>Live Scoreboard</h3>" +
     scores.map((s) => `<p>${s.name}: ${s.score}</p>`).join("");
-}
-
-function renderRoundMatrix(row) {
-  let html = `<table><thead><tr><th>Round</th>`;
-  Object.keys(row).forEach((key) => {
-    if (key !== "round") html += `<th>${key}</th>`;
-  });
-  html += `</tr></thead><tbody><tr><td>${row.round}</td>`;
-  Object.keys(row).forEach((key) => {
-    if (key !== "round") html += `<td>${row[key]}</td>`;
-  });
-  html += `</tr></tbody></table>`;
-  roundMatrixDiv.innerHTML = html;
 }
