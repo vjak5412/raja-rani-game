@@ -1,4 +1,3 @@
-// server.js — Raja Rani Multiplayer Game WebSocket Server (Updated with Full Logic and Bug Fixes)
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
 
@@ -53,7 +52,15 @@ wss.on("connection", (ws) => {
       if (data.type === "create_room") {
         const roomCode = uuidv4().slice(0, 6).toUpperCase();
         rooms[roomCode] = {
-          players: [{ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null, guessedCorrectly: false }],
+          players: [{
+            name: data.name,
+            ws,
+            role: null,
+            id: data.id,
+            score: 0,
+            prevTarget: null,
+            guessedCorrectly: false
+          }],
           round: 1,
           roundLogs: [],
           scoreboard: {},
@@ -69,7 +76,17 @@ wss.on("connection", (ws) => {
       if (data.type === "join_room") {
         const room = rooms[data.roomCode];
         if (!room) return ws.send(JSON.stringify({ type: "error", message: "Room not found." }));
-        room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null, guessedCorrectly: false });
+
+        room.players.push({
+          name: data.name,
+          ws,
+          role: null,
+          id: data.id,
+          score: 0,
+          prevTarget: null,
+          guessedCorrectly: false
+        });
+
         broadcast(data.roomCode, {
           type: "player_joined",
           players: room.players.map((p) => p.name)
@@ -79,6 +96,7 @@ wss.on("connection", (ws) => {
       if (data.type === "start_game") {
         const room = rooms[data.roomCode];
         if (!room) return;
+
         const players = room.players;
         if (players.length < 3 || players.length > 8) {
           return ws.send(JSON.stringify({ type: "error", message: "Players must be between 3 and 8." }));
@@ -131,13 +149,11 @@ wss.on("connection", (ws) => {
           room.chainIndex++;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
         } else {
-          result = `${guesser.name} guessed ${guessed.name} as ${nextRole} ❌`;
-
           if (guesser.prevTarget === guessed.name) {
-            result += ` (Back-to-back swap prevented)`;
+            result = `${guesser.name} guessed ${guessed.name} again — Back-to-back swap prevented ❌`;
             return;
           }
-
+          result = `${guesser.name} guessed ${guessed.name} as ${nextRole} ❌`;
           [guesser.role, guessed.role] = [guessed.role, guesser.role];
           guesser.prevTarget = guessed.name;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
@@ -168,6 +184,7 @@ wss.on("connection", (ws) => {
       if (data.type === "start_next_round") {
         const room = rooms[data.roomCode];
         if (!room) return;
+
         room.round++;
         room.chainIndex = 0;
         room.chainLog = [];
@@ -189,6 +206,7 @@ wss.on("connection", (ws) => {
 
         room.stage = "playing";
         room.currentTurn = players.findIndex((p) => p.role === "Raja");
+
         broadcast(data.roomCode, {
           type: "start_chain",
           nextRole: roleMap[players.length][1],
@@ -230,4 +248,5 @@ function buildRoundTable(players, round) {
     obj[p.name] = rolePoints[p.role] || 0;
   });
   return obj;
-}
+          }
+          
