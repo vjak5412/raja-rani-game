@@ -5,14 +5,17 @@ let playerId = uuidv4();
 let roomCode = "";
 let myRole = "";
 let isAdmin = false;
+let roleViewTimer = null;
+let chatCooldown = false;
+let scoreData = [];
 
-// DOM elements
 const joinSection = document.getElementById("joinSection");
 const gameSection = document.getElementById("gameSection");
 const playersList = document.getElementById("playersList");
 const roleCard = document.getElementById("roleCard");
 const myRoleName = document.getElementById("myRole");
 const viewRoleBtn = document.getElementById("viewRole");
+const roleCountdown = document.getElementById("roleCountdown");
 const chainLog = document.getElementById("chainLog");
 const guessInput = document.getElementById("guessInput");
 const submitGuess = document.getElementById("submitGuess");
@@ -25,6 +28,9 @@ const roomCodeText = document.getElementById("roomCodeText");
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const sendChat = document.getElementById("sendChat");
+const loadingSpinner = document.getElementById("loadingSpinner");
+const confettiCanvas = document.getElementById("confettiCanvas");
+const downloadScores = document.getElementById("downloadScores");
 
 function uuidv4() {
   return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
@@ -39,12 +45,28 @@ function hide(element) {
   element.classList.add("hidden");
 }
 
-// Button events
+function startLoading() {
+  loadingSpinner.style.display = "block";
+}
+function stopLoading() {
+  loadingSpinner.style.display = "none";
+}
+
+function triggerConfetti() {
+  // Placeholder for confetti animation
+  console.log("🎉 Confetti triggered!");
+}
+
+function sanitize(text) {
+  return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 document.getElementById("createRoom").onclick = () => {
   playerName = document.getElementById("playerName").value.trim();
   if (!playerName) return alert("Enter your name");
   isAdmin = true;
-  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
+  startLoading();
+  socket.send(JSON.stringify({ type: "create_room", name: id: playerId }));
 };
 
 document.getElementById("joinRoom").onclick = () => {
@@ -52,6 +74,7 @@ document.getElementById("joinRoom").onclick = () => {
   const code = document.getElementById("roomCode").value.trim();
   if (!playerName || !code) return alert("Enter name and room code");
   roomCode = code;
+  startLoading();
   socket.send(JSON.stringify({ type: "join_room", roomCode: code, name: playerName, id: playerId }));
 };
 
@@ -64,10 +87,18 @@ document.getElementById("startGame").onclick = () => {
 viewRoleBtn.onclick = () => {
   show(roleCard);
   viewRoleBtn.disabled = true;
-  setTimeout(() => {
-    hide(roleCard);
-    viewRoleBtn.disabled = false;
-  }, 4000);
+  let countdown = 4;
+  roleCountdown.textContent = `Role visible for ${countdown} seconds`;
+  roleViewTimer = setInterval(() => {
+    countdown--;
+    roleCountdown.textContent = `Role visible for ${countdown} seconds`;
+    if (countdown <= 0) {
+      clearInterval(roleViewTimer);
+      hide(roleCard);
+      viewRoleBtn.disabled = false;
+      roleCountdown.textContent = "";
+    }
+  }, 1000);
 };
 
 submitGuess.onclick = () => {
@@ -75,6 +106,8 @@ submitGuess.onclick = () => {
   if (!guess) return alert("Select a player to guess");
   socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
   guessInput.value = "";
+  submitGuess.disabled = true;
+  setTimeout(() => submitGuess.disabled = false, 2000); // prevent spam
 };
 
 document.getElementById("continueGame").onclick = () => {
@@ -95,10 +128,24 @@ document.getElementById("restartGame").onclick = () => {
 
 sendChat.onclick = () => {
   const text = chatInput.value.trim();
-  if (text) {
-    socket.send(JSON.stringify({ type: "chat", roomCode, name: playerName, text }));
+  if (text && !chatCooldown) {
+    socket.send(JSON.stringify({ type: "chat", roomCode, name: playerName, text: sanitize(text) }));
     chatInput.value = "";
+    chatCooldown = true;
+    setTimeout(() => chatCooldown = false, 1000); // rate limit
   }
+};
+
+downloadScores.onclick = () => {
+  const blob = new Blob([scoreData.join("\n")], { type: "text/plain" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `raja_rani_scores_${roomCode}.txt`;
+  link.click();
+};
+
+socket.onopen = () => {
+  stopLoading();
 };
 
 socket.onmessage = (event) => {
@@ -109,10 +156,14 @@ socket.onmessage = (event) => {
     roomCodeText.textContent = roomCode;
     hide(joinSection);
     show(gameSection);
+    stopLoading();
   }
 
   if (data.type === "player_joined") {
-    playersList.innerHTML = data.players.map((name) => `<li>${name}</li>`).join("");
+    playersList.innerHTML = data.players.map((name, i) => {
+      const badge = i === 0 ? '<span class="admin-badge">Admin</span>' : '';
+      return `<li>${sanitize(name)} ${badge}</li>`;
+    }).join("");
   }
 
   if (data.type === "your_role") {
@@ -126,19 +177,26 @@ socket.onmessage = (event) => {
     turnPlayer.textContent = data.turnPlayer;
     guessRole.textContent = data.nextRole;
     updateScoreboard(data.scoreboard);
+    updateGuessDropdown(data.scoreboard);
   }
 
   if (data.type === "chain_update") {
     turnPlayer.textContent = data.turnPlayer;
     guessRole.textContent = data.nextRole;
     updateScoreboard(data.scoreboard);
-    chainLog.innerHTML = data.log.map((l) => `<p>${l}</p>`).join("");
+    chainLog.innerHTML = data.log.map((l) => `<p>${sanitize(l)}</p>`).join("");
+    updateGuessDropdown(data.scoreboard);
   }
 
   if (data.type === "game_over") {
     hide(gameSection);
     show(finalSection);
-    finalScoreboard.innerHTML = data.scoreboard.map((p) => `<p>${p.name}: ${p.score}</p>`).join("");
+    scoreData = data.scoreboard.map((p) => `${p.name}: ${p.score}`);
+    finalScoreboard.innerHTML = data.scoreboard.map((p, i) => {
+      const highlight = i === 0 ? 'style="font-weight:bold;color:green;"' : '';
+      return `<p ${highlight}>${p.name}: ${p.score}</p>`;
+    }).join("");
+    triggerConfetti();
   }
 
   if (data.type === "chat") {
@@ -152,4 +210,11 @@ socket.onmessage = (event) => {
 function updateScoreboard(scores) {
   scoreboardDiv.innerHTML = "<h3>Live Scoreboard</h3>" +
     scores.map((s) => `<p>${s.name}: ${s.score}</p>`).join("");
+}
+
+function updateGuessDropdown(scores) {
+  guessInput.innerHTML = scores
+    .filter(p => p.name !== playerName && p.score !== null)
+    .map(p => `<option value="${p.name}">${p.name}</option>`)
+    .join("");
 }
