@@ -1,14 +1,9 @@
-// server.js — Render-Compatible Raja Rani Multiplayer Game WebSocket Server
-
+// server.js — Raja Rani Multiplayer Game WebSocket Server (Updated with Full Logic and Bug Fixes)
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
-const http = require("http");
 
-const PORT = process.env.PORT || 8080;
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
-
-console.log(`✅ WebSocket server running on port ${PORT}`);
+const wss = new WebSocket.Server({ port: 8080 });
+console.log("✅ WebSocket server running on port 8080");
 
 const rooms = {};
 
@@ -58,13 +53,14 @@ wss.on("connection", (ws) => {
       if (data.type === "create_room") {
         const roomCode = uuidv4().slice(0, 6).toUpperCase();
         rooms[roomCode] = {
-          players: [{ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null }],
+          players: [{ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null, guessedCorrectly: false }],
           round: 1,
+          roundLogs: [],
           scoreboard: {},
+          stage: "waiting",
           chainIndex: 0,
           currentTurn: 0,
           chainLog: [],
-          stage: "waiting",
           chatLog: []
         };
         ws.send(JSON.stringify({ type: "room_created", roomCode }));
@@ -73,7 +69,7 @@ wss.on("connection", (ws) => {
       if (data.type === "join_room") {
         const room = rooms[data.roomCode];
         if (!room) return ws.send(JSON.stringify({ type: "error", message: "Room not found." }));
-        room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null });
+        room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null, guessedCorrectly: false });
         broadcast(data.roomCode, {
           type: "player_joined",
           players: room.players.map((p) => p.name)
@@ -92,6 +88,7 @@ wss.on("connection", (ws) => {
         players.forEach((p, i) => {
           p.role = roles[i];
           p.prevTarget = null;
+          p.guessedCorrectly = false;
           p.ws.send(JSON.stringify({
             type: "your_role",
             name: p.name,
@@ -121,7 +118,7 @@ wss.on("connection", (ws) => {
         const guessed = players.find((p) => p.name === data.guess);
         const nextRole = roleMap[players.length][room.chainIndex + 1];
 
-        if (!guessed || guesser.prevTarget === guessed.name) {
+        if (!guessed || guesser.prevTarget === guessed.name || guesser.guessedCorrectly || guessed.guessedCorrectly) {
           return;
         }
 
@@ -130,10 +127,17 @@ wss.on("connection", (ws) => {
         if (guessed.role === nextRole) {
           result = `${guesser.name} correctly guessed ${guessed.name} as ${nextRole}`;
           guesser.score += rolePoints[nextRole] || 0;
+          guesser.guessedCorrectly = true;
           room.chainIndex++;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
         } else {
           result = `${guesser.name} guessed ${guessed.name} as ${nextRole} ❌`;
+
+          if (guesser.prevTarget === guessed.name) {
+            result += ` (Back-to-back swap prevented)`;
+            return;
+          }
+
           [guesser.role, guessed.role] = [guessed.role, guesser.role];
           guesser.prevTarget = guessed.name;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
@@ -174,6 +178,7 @@ wss.on("connection", (ws) => {
         players.forEach((p, i) => {
           p.role = roles[i];
           p.prevTarget = null;
+          p.guessedCorrectly = false;
           p.ws.send(JSON.stringify({
             type: "your_role",
             name: p.name,
@@ -226,7 +231,3 @@ function buildRoundTable(players, round) {
   });
   return obj;
 }
-
-server.listen(PORT, () => {
-  console.log(`✅ Server is live on port ${PORT}`);
-});
