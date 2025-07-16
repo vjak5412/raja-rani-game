@@ -1,9 +1,9 @@
-// server.js — Raja Rani Multiplayer Game WebSocket Server (Updated with Full Logic and Bug Fixes)
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
 
-const wss = new WebSocket.Server({ port: 8080 });
-console.log("✅ WebSocket server running on port 8080");
+const PORT = process.env.PORT || 8080;
+const wss = new WebSocket.Server({ port: PORT });
+console.log(`✅ WebSocket server running on port ${PORT}`);
 
 const rooms = {};
 
@@ -45,40 +45,47 @@ function broadcast(roomCode, message) {
   }
 }
 
-wss.on("connection", (ws) => {
-  ws.on("message", (msg) => {
+function sanitize(input) {
+  return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+wss.onmessage", (msg) => {
     try {
       const data = JSON.parse(msg);
+      const name = sanitize(data.name || "");
+      const roomCode = data.roomCode;
 
       if (data.type === "create_room") {
-        const roomCode = uuidv4().slice(0, 6).toUpperCase();
-        rooms[roomCode] = {
-          players: [{ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null, guessedCorrectly: false }],
+        const newRoomCode = uuidv4().slice(0, 6).toUpperCase();
+        rooms[newRoomCode] = {
+          players: [{ name, ws, role: null, id: data.id, score: 0, guessedCorrectly: false }],
           round: 1,
-          roundLogs: [],
-          scoreboard: {},
-          stage: "waiting",
+          adminId: data.id,
           chainIndex: 0,
           currentTurn: 0,
           chainLog: [],
-          chatLog: []
+          swapHistory: {},
+          stage: "waiting"
         };
-        ws.send(JSON.stringify({ type: "room_created", roomCode }));
+        ws.send(JSON.stringify({ type: "room_created", roomCode: newRoomCode }));
       }
 
       if (data.type === "join_room") {
-        const room = rooms[data.roomCode];
+        const room = rooms[roomCode];
         if (!room) return ws.send(JSON.stringify({ type: "error", message: "Room not found." }));
-        room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null, guessedCorrectly: false });
-        broadcast(data.roomCode, {
+        if (room.players.find(p => p.name === name)) {
+          return ws.send(JSON.stringify({ type: "error", message: "Duplicate name not allowed." }));
+        }
+        room.players.push({ name, ws, role: null, id: data.id, score: 0, guessedCorrectly: false });
+        broadcast(roomCode, {
           type: "player_joined",
           players: room.players.map((p) => p.name)
         });
       }
 
       if (data.type === "start_game") {
-        const room = rooms[data.roomCode];
-        if (!room) return;
+        const room = rooms[roomCode];
+        if (!room || room.adminId !== data.id) return;
         const players = room.players;
         if (players.length < 3 || players.length > 8) {
           return ws.send(JSON.stringify({ type: "error", message: "Players must be between 3 and 8." }));
@@ -87,7 +94,6 @@ wss.on("connection", (ws) => {
         const roles = shuffle([...roleMap[players.length]]);
         players.forEach((p, i) => {
           p.role = roles[i];
-          p.prevTarget = null;
           p.guessedCorrectly = false;
           p.ws.send(JSON.stringify({
             type: "your_role",
@@ -97,12 +103,13 @@ wss.on("connection", (ws) => {
           }));
         });
 
-        room.stage = "playing";
         room.chainIndex = 0;
         room.currentTurn = players.findIndex((p) => p.role === "Raja");
         room.chainLog = [];
+        room.swapHistory = {};
+        room.stage = "playing";
 
-        broadcast(data.roomCode, {
+        broadcast(roomCode, {
           type: "start_chain",
           nextRole: roleMap[players.length][1],
           turnPlayer: players[room.currentTurn].name,
@@ -112,18 +119,23 @@ wss.on("connection", (ws) => {
       }
 
       if (data.type === "guess") {
-        const room = rooms[data.roomCode];
+        const room = rooms[roomCode];
+        if (!room) return;
         const players = room.players;
         const guesser = players.find((p) => p.id === data.id);
         const guessed = players.find((p) => p.name === data.guess);
         const nextRole = roleMap[players.length][room.chainIndex + 1];
 
-        if (!guessed || guesser.prevTarget === guessed.name || guesser.guessedCorrectly || guessed.guessedCorrectly) {
+        if (!guessed || guesser.guessedCorrectly || guessed.guessedCorrectly || guesser.name === guessed.name) {
+          return;
+        }
+
+        const swapKey = guesser.name + "-" + guessed.name;
+        if (room.swapHistory[swapKey]) {
           return;
         }
 
         let result = "";
-
         if (guessed.role === nextRole) {
           result = `${guesser.name} correctly guessed ${guessed.name} as ${nextRole}`;
           guesser.score += rolePoints[nextRole] || 0;
@@ -132,30 +144,23 @@ wss.on("connection", (ws) => {
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
         } else {
           result = `${guesser.name} guessed ${guessed.name} as ${nextRole} ❌`;
-
-          if (guesser.prevTarget === guessed.name) {
-            result += ` (Back-to-back swap prevented)`;
-            return;
-          }
-
           [guesser.role, guessed.role] = [guessed.role, guesser.role];
-          guesser.prevTarget = guessed.name;
+          room.swapHistory[swapKey] = true;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
         }
 
         room.chainLog.push(result);
 
-        if (room.chainIndex >= roleMap[players.length].length - 1) {
-          broadcast(data.roomCode, {
+        if (guessed.role === "Thirudan" || room.chainIndex >= roleMap[players.length].length - 1) {
+          broadcast(roomCode, {
             type: "game_over",
             log: room.chainLog,
             scoreboard: players.map((p) => ({ name: p.name, score: p.score })),
             round: room.round,
-            canStartNext: true,
             roundTable: buildRoundTable(players, room.round)
           });
         } else {
-          broadcast(data.roomCode, {
+          broadcast(roomCode, {
             type: "chain_update",
             log: room.chainLog,
             nextRole: roleMap[players.length][room.chainIndex + 1],
@@ -166,18 +171,18 @@ wss.on("connection", (ws) => {
       }
 
       if (data.type === "start_next_round") {
-        const room = rooms[data.roomCode];
+        const room = rooms[roomCode];
         if (!room) return;
         room.round++;
         room.chainIndex = 0;
         room.chainLog = [];
-        room.stage = "waiting";
+        room.swapHistory = {};
+        room.stage = "playing";
 
         const players = room.players;
         const roles = shuffle([...roleMap[players.length]]);
         players.forEach((p, i) => {
           p.role = roles[i];
-          p.prevTarget = null;
           p.guessedCorrectly = false;
           p.ws.send(JSON.stringify({
             type: "your_role",
@@ -187,9 +192,8 @@ wss.on("connection", (ws) => {
           }));
         });
 
-        room.stage = "playing";
         room.currentTurn = players.findIndex((p) => p.role === "Raja");
-        broadcast(data.roomCode, {
+        broadcast(roomCode, {
           type: "start_chain",
           nextRole: roleMap[players.length][1],
           turnPlayer: players[room.currentTurn].name,
@@ -199,16 +203,15 @@ wss.on("connection", (ws) => {
       }
 
       if (data.type === "chat") {
-        const room = rooms[data.roomCode];
+        const room = rooms[roomCode];
         if (!room) return;
         const msg = {
           type: "chat",
-          name: data.name,
-          text: data.text,
+          name,
+          text: sanitize(data.text),
           time: new Date().toISOString()
         };
-        room.chatLog.push(msg);
-        broadcast(data.roomCode, msg);
+        broadcast(roomCode, msg);
       }
     } catch (err) {
       console.error("Invalid message:", msg);
