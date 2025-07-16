@@ -1,22 +1,17 @@
-// Save this as server.js
+   }
+  });
+});
+          
+// server.js — FINAL VERSION with role logic, swap prevention, scoring, cleanup
+
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
 const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
-console.log(`🟢 WebSocket server running on port ${process.env.PORT || 8080}`);
+const rooms = new Map();
 
-const rooms = {};
-
-const roleMap = {
-  3: ["Raja", "Rani", "Mantiri"],
-  4: ["Raja", "Rani", "Mantiri", "Thirudan"],
-  5: ["Raja", "Rani", "Mantiri", "Police", "Thirudan"],
-  6: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Thirudan"],
-  7: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Thirudan"],
-  8: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Nai", "Thirudan"]
-};
-
-const rolePoints = {
+const ROLES = ['Raja', 'Rani', 'Mantiri', 'Police', 'Sippai', 'Sevagan', 'Nai', 'Thirudan'];
+const ROLE_POINTS = {
   Raja: 5000,
   Rani: 3000,
   Mantiri: 1500,
@@ -27,223 +22,181 @@ const rolePoints = {
   Thirudan: 0
 };
 
-function shuffle(arr) {
-  const newArr = [...arr];
-  for (let i = newArr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+function assignRoles(players) {
+  const shuffled = [...players].sort(() => Math.random() - 0.5);
+  const assigned = {};
+  for (let i = 0; i < shuffled.length; i++) {
+    assigned[shuffled[i].id] = ROLES[i];
   }
-  return newArr;
-}
-
-function broadcast(roomCode, message) {
-  const room = rooms[roomCode];
-  if (!room) return;
-  room.players.forEach(p => {
-    if (p.ws.readyState === WebSocket.OPEN) {
-      p.ws.send(JSON.stringify(message));
-    }
-  });
+  return assigned;
 }
 
 wss.on('connection', (ws) => {
   ws.on('message', (msg) => {
-    try {
-      const data = JSON.parse(msg);
+    const data = JSON.parse(msg);
+    const { type, roomCode, name, id, guess, text } = data;
 
-      if (data.type === 'create_room') {
-        const roomCode = uuidv4().slice(0, 6).toUpperCase();
-        rooms[roomCode] = {
-          admin: data.name,
-          players: [{ name: data.name, ws, role: null, id: data.id, score: 0 }],
-          stage: 'waiting',
-          currentTurn: 0,
-          chainIndex: 0,
-          chainLog: [],
-          chatLog: [],
-          round: 1,
-          roundRecords: [],
-          maxRounds: 99,
-          inactiveIds: [],
-          guessedHistory: [],
-          lastSwapMatrix: {}
-        };
-        ws.send(JSON.stringify({ type: 'room_created', roomCode }));
-      }
+    if (type === 'create_room') {
+      const code = Math.random().toString(36).substr(2, 5).toUpperCase();
+      rooms.set(code, {
+        code,
+        host: id,
+        players: [{ id, name, ws, score: 0 }],
+        roles: {},
+        history: [],
+        disabled: [],
+        log: [],
+        round: 1,
+        scoreboard: [],
+      });
+      ws.send(JSON.stringify({ type: 'room_created', roomCode: code }));
+    }
 
-      if (data.type === 'join_room') {
-        const room = rooms[data.roomCode];
-        if (room) {
-          room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0 });
-          broadcast(data.roomCode, {
+    if (type === 'join_room') {
+      const room = rooms.get(roomCode);
+      if (room && !room.players.find(p => p.id === id)) {
+        room.players.push({ id, name, ws, score: 0 });
+        room.players.forEach(p => {
+          p.ws.send(JSON.stringify({
             type: 'player_joined',
             players: room.players.map(p => p.name)
-          });
-        } else {
-          ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
-        }
-      }
-
-      if (data.type === 'start_game') {
-        const room = rooms[data.roomCode];
-        const players = room.players;
-        if (players.length < 3 || players.length > 8) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Players must be between 3 and 8' }));
-          return;
-        }
-
-        const roles = shuffle(roleMap[players.length]);
-        players.forEach((p, i) => p.role = roles[i]);
-
-        room.stage = 'playing';
-        room.chainIndex = 0;
-        room.inactiveIds = [];
-        room.guessedHistory = [];
-        room.lastSwapMatrix = {};
-        room.currentTurn = players.findIndex(p => p.role === "Raja");
-
-        players.forEach(p => {
-          p.ws.send(JSON.stringify({
-            type: 'your_role',
-            role: p.role,
-            name: p.name,
-            round: room.round
           }));
         });
-
-        broadcast(data.roomCode, {
-          type: 'start_chain',
-          nextRole: roleMap[players.length][1],
-          turnPlayer: players[room.currentTurn].name,
-          round: room.round,
-          scoreboard: players.map(p => ({ name: p.name, score: p.score }))
-        });
       }
+    }
 
-      if (data.type === 'guess') {
-        const room = rooms[data.roomCode];
-        const players = room.players;
-        const guesser = players.find(p => p.id === data.id);
-        const guessed = players.find(p => p.name === data.guess);
-        const currentRole = roleMap[players.length][room.chainIndex + 1];
+    if (type === 'start_game') {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+      startRound(room);
+    }
 
-        if (!guesser || !guessed) return;
+    if (type === 'start_next_round') {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+      room.round += 1;
+      room.disabled = [];
+      room.history = [];
+      room.log = [];
+      startRound(room);
+    }
 
-        // Prevent back-to-back swaps
-        const key = `${guesser.name}->${guessed.name}`;
-        const reverseKey = `${guessed.name}->${guesser.name}`;
-        if (room.lastSwapMatrix[reverseKey]) {
-          guesser.ws.send(JSON.stringify({ type: 'error', message: 'Back-to-back swap not allowed' }));
-          return;
-        }
+    if (type === 'guess') {
+      const room = rooms.get(roomCode);
+      const guesser = room.players.find(p => p.id === id);
+      const target = room.players.find(p => p.name === guess);
+      const guesserRole = room.roles[guesser.id];
+      const targetRole = room.roles[target.id];
 
-        let result = '';
-        if (guessed.role === currentRole) {
-          result = `${guesser.name} guessed correctly! ${guessed.name} is ${currentRole}`;
-          guesser.score += rolePoints[currentRole];
-          room.inactiveIds.push(guesser.id);
-          room.chainIndex++;
-          room.currentTurn = players.findIndex(p => p.name === guessed.name);
-        } else {
-          result = `${guesser.name} guessed wrong. ${guessed.name} is not ${currentRole}. Swapping roles.`;
-          [guesser.role, guessed.role] = [guessed.role, guesser.role];
-          room.currentTurn = players.findIndex(p => p.name === guessed.name);
-          room.lastSwapMatrix[key] = true;
-        }
+      // Track disable swap history
+      room.history.push({ from: guesser.id, to: target.id });
+      room.disabled.push(target.name); // Hide target from future guesses
 
-        room.guessedHistory.push(guessed.name);
-        room.chainLog.push(result);
+      let result = '';
+      if (
+        (guesserRole === 'Raja' && targetRole === 'Rani') ||
+        (guesserRole === 'Rani' && targetRole === 'Mantiri') ||
+        (guesserRole === 'Mantiri' && targetRole === 'Police') ||
+        (guesserRole === 'Police' && targetRole === 'Sippai') ||
+        (guesserRole === 'Sippai' && targetRole === 'Sevagan') ||
+        (guesserRole === 'Sevagan' && targetRole === 'Nai') ||
+        (guesserRole === 'Nai' && targetRole === 'Thirudan')
+      ) {
+        const points = ROLE_POINTS[guesserRole];
+        guesser.score += points;
+        room.log.push(`${guesser.name} guessed ${target.name} correctly! (+${points})`);
+        room.disabled.push(guesser.name); // Remove guesser from future guesses
 
-        // If guessed is Thirudan, end game
-        if (guessed.role === 'Thirudan' || currentRole === 'Thirudan') {
-          players.forEach(p => {
-            const bonus = rolePoints[p.role] || 0;
-            p.score += bonus;
-          });
-
-          const roundTable = players.map(p => ({
-            name: p.name,
-            role: p.role,
-            score: p.score
-          }));
-
-          broadcast(data.roomCode, {
+        // If Thirudan guessed, end game
+        if (targetRole === 'Thirudan') {
+          broadcast(room, {
             type: 'game_over',
-            log: room.chainLog,
-            scoreboard: players.map(p => ({ name: p.name, score: p.score })),
             round: room.round,
-            canStartNext: room.round < room.maxRounds,
-            roundTable
+            log: room.log,
+            roundScore: room.players.map(p => ({ name: p.name, score: p.score })),
+            allScores: room.players.map(p => ({ name: p.name, score: p.score })),
+            canStartNext: true
           });
-
           return;
         }
 
-        broadcast(data.roomCode, {
-          type: 'chain_update',
-          log: room.chainLog,
-          nextRole: roleMap[players.length][room.chainIndex + 1],
-          turnPlayer: players[room.currentTurn].name,
-          scoreboard: players.map(p => ({ name: p.name, score: p.score }))
-        });
+        // Pass turn to next eligible player
+        nextTurn(room, guesser.name);
+      } else {
+        // Swap roles
+        const temp = room.roles[guesser.id];
+        room.roles[guesser.id] = room.roles[target.id];
+        room.roles[target.id] = temp;
+
+        room.log.push(`${guesser.name} guessed ${target.name} wrongly. Swapped roles.`);
+        room.disabled.push(guesser.name); // Prevent immediate re-guess
+        nextTurn(room, target.name);
       }
 
-      if (data.type === 'start_next_round') {
-        const room = rooms[data.roomCode];
-        if (room.round >= room.maxRounds) return;
+      broadcast(room, {
+        type: 'chain_update',
+        turnPlayer: room.turnPlayer,
+        nextRole: 'Rani',
+        log: room.log,
+        scoreboard: room.players.map(p => ({ name: p.name, score: p.score })),
+        disabledPlayers: room.disabled
+      });
+    }
 
-        room.round++;
-        const players = room.players;
-        const roles = shuffle(roleMap[players.length]);
-
-        players.forEach((p, i) => p.role = roles[i]);
-        room.chainIndex = 0;
-        room.inactiveIds = [];
-        room.guessedHistory = [];
-        room.lastSwapMatrix = {};
-        room.chainLog = [];
-        room.currentTurn = players.findIndex(p => p.role === "Raja");
-
-        players.forEach(p => {
-          p.ws.send(JSON.stringify({
-            type: 'your_role',
-            role: p.role,
-            name: p.name,
-            round: room.round
-          }));
-        });
-
-        broadcast(data.roomCode, {
-          type: 'start_chain',
-          nextRole: roleMap[players.length][1],
-          turnPlayer: players[room.currentTurn].name,
-          round: room.round,
-          scoreboard: players.map(p => ({ name: p.name, score: p.score }))
-        });
-      }
-
-      if (data.type === 'chat') {
-        const room = rooms[data.roomCode];
-        const message = {
-          type: 'chat',
-          name: data.name,
-          text: data.text,
-          time: new Date().toISOString()
-        };
-        room.chatLog.push(message);
-        broadcast(data.roomCode, message);
-      }
-    } catch (e) {
-      console.error("❌ Invalid message:", msg);
+    if (type === 'chat') {
+      const room = rooms.get(roomCode);
+      room.players.forEach(p => {
+        p.ws.send(JSON.stringify({ type: 'chat', name, text, time: Date.now() }));
+      });
     }
   });
 
   ws.on('close', () => {
-    for (const code in rooms) {
-      const room = rooms[code];
+    rooms.forEach((room, code) => {
       room.players = room.players.filter(p => p.ws !== ws);
-      if (room.players.length === 0) delete rooms[code];
-    }
+      if (room.players.length === 0) {
+        rooms.delete(code);
+      }
+    });
   });
 });
-          
+
+function broadcast(room, message) {
+  room.players.forEach(p => {
+    p.ws.send(JSON.stringify(message));
+  });
+}
+
+function startRound(room) {
+  room.roles = assignRoles(room.players);
+  room.turnPlayer = room.players.find(p => room.roles[p.id] === 'Raja').name;
+  room.disabled = [];
+  room.history = [];
+  room.log = [];
+
+  // Send role secretly
+  room.players.forEach(p => {
+    p.ws.send(JSON.stringify({
+      type: 'your_role',
+      name: p.name,
+      role: room.roles[p.id],
+      round: room.round
+    }));
+  });
+
+  // Short delay before chain starts
+  setTimeout(() => {
+    broadcast(room, {
+      type: 'start_chain',
+      round: room.round,
+      turnPlayer: room.turnPlayer,
+      nextRole: 'Rani',
+      scoreboard: room.players.map(p => ({ name: p.name, score: p.score }))
+    });
+  }, 3000);
+}
+
+function nextTurn(room, newPlayerName) {
+  room.turnPlayer = newPlayerName;
+          }
+                                           
