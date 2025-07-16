@@ -1,5 +1,4 @@
-const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
-
+const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com"); // Change this if you host elsewhere
 let playerName = "";
 let playerId = uuidv4();
 let roomCode = "";
@@ -46,43 +45,37 @@ document.getElementById("createRoom").onclick = () => {
   playerName = document.getElementById("playerName").value;
   socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
 };
-
-documentonclick = () => {
+document.getElementById("joinRoom").onclick = () => {
   playerName = document.getElementById("playerName").value;
   const code = document.getElementById("roomCode").value;
   roomCode = code;
   socket.send(JSON.stringify({ type: "join_room", roomCode: code, name: playerName, id: playerId }));
 };
-
 document.getElementById("startGame").onclick = () => {
   socket.send(JSON.stringify({ type: "start_game", roomCode }));
 };
-
-view(roleCard), 4000);
+viewRoleBtn.onclick = () => {
+  show(roleCard);
+  setTimeout(() => hide(roleCard), 4000);
 };
-
 submitGuess.onclick = () => {
   const guess = guessInput.value;
   socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
   guessInput.value = "";
 };
-
 document.getElementById("continueGame").onclick = () => {
   socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
   hide(finalSection);
   show(gameSection);
 };
-
 document.getElementById("exitGame").onclick = () => {
   alert("You chose to exit the game. Please refresh the page to join a new game.");
 };
-
 document.getElementById("restartGame").onclick = () => {
   socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
   hide(finalSection);
   show(gameSection);
 };
-
 sendChat.onclick = () => {
   const text = chatInput.value.trim();
   if (text) {
