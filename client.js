@@ -1,3 +1,5 @@
+// client.js
+
 const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
 
 let playerName = "";
@@ -66,7 +68,7 @@ document.getElementById("createRoom").onclick = () => {
   if (!playerName) return alert("Enter your name");
   isAdmin = true;
   startLoading();
-  socket.send(JSON.stringify({ type: "create_room", name: id: playerId }));
+  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
 };
 
 document.getElementById("joinRoom").onclick = () => {
@@ -107,7 +109,7 @@ submitGuess.onclick = () => {
   socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
   guessInput.value = "";
   submitGuess.disabled = true;
-  setTimeout(() => submitGuess.disabled = false, 2000); // prevent spam
+  setTimeout(() => submitGuess.disabled = false, 2000);
 };
 
 document.getElementById("continueGame").onclick = () => {
@@ -132,7 +134,7 @@ sendChat.onclick = () => {
     socket.send(JSON.stringify({ type: "chat", roomCode, name: playerName, text: sanitize(text) }));
     chatInput.value = "";
     chatCooldown = true;
-    setTimeout(() => chatCooldown = false, 1000); // rate limit
+    setTimeout(() => chatCooldown = false, 1000);
   }
 };
 
