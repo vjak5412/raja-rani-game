@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Raja Rani Online Multiplayer Game</title>
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
+  https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap
   <style>
     * {
       box-sizing: border-box;
@@ -21,13 +21,7 @@
       padding: 20px;
     }
 
-    .container {
-      width: 100%;
-      max-width: 900px;
-      background: #fff;
-      border-radius: 15px;
-      padding: 30px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+ rgba(0,0,0,0.1);
       animation: fadeIn 1s ease-in-out;
     }
 
@@ -131,81 +125,86 @@
     .view-role:hover {
       background-color: #217dbb;
     }
+
+    .chat-section {
+      margin-top: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+
+      .log, .chatlog {
+        height: 100px;
+      }
+
+      input, select, button {
+        font-size: 14px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <!-- Setup -->
-    <div id="setupCard">
+    <div id="joinSection">
       <h1>🎭 Raja Rani Multiplayer Game</h1>
       <input type="text" id="playerName" placeholder="Enter your name"/>
-      <button onclick="createRoom()">Create Room</button>
-      <input type="text" id="joinCode" placeholder="Join with code"/>
-      <button onclick="joinRoom()">Join Room</button>
-    </div>
-
-    <!-- Waiting -->
-    <div id="waitingCard" class="hidden">
-      <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
-      <h3>Players Joined:</h3>
-      <ul id="playerList"></ul>
-      <button onclick="startGame()">Start Game</button>
-    </div>
-
-    <!-- Role Display -->
-    <div id="roleCard" class="hidden">
-      <h2>Welcome <span id="nameDisplay"></span></h2>
-      <p>Your Role (Round <span id="roundNum1"></span>): <strong id="yourRole"></strong>
-        <button class="view-role" onclick="revealRole()">View</button>
-      </p>
+      <button id="createRoom">Create Room</button>
+      <input type="text" id="roomCode" placeholder="Join with code"/>
+      <button id="joinRoom">Join Room</button>
     </div>
 
     <!-- Game Area -->
-    <div id="gameCard" class="hidden">
-      <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
-      <p>Guess who is the <strong id="guessRole"></strong></p>
-      <select id="guessInput"></select>
-      <button onclick="makeGuess()">Submit Guess</button>
+    <div id="gameSection" class="hidden">
+      <h2>Room Code: <span id="roomCodeText"></span></h2>
+      <h3>Players Joined:</h3>
+      <ul id="playersList"></ul>
+      <button id="startGame">Start Game</button>
 
-      <div class="log" id="logBox"></div>
-
-      <div class="scoreboard">
-        <h4>Scoreboard</h4>
-        <table class="score-table" id="scoreboardTable"></table>
+      <div id="roleCard" class="hidden">
+        <h3>Your Role</h3>
+        <p id="myRole"></p>
+        <button id="viewRole" class="view-role">View Role</button>
       </div>
 
-      <div class="chat-section">
-        <h3>💬 Chat</h3>
-        <div class="chatlog" id="chatLog"></div>
-        <input id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChat()" />
-        <button onclick="sendChat()">Send</button>
+      <div id="gamePlay">
+        <h3>Turn: <span id="turnPlayer"></span></h3>
+        <p>Guess who is the <strong id="guessRole"></strong></p>
+        <select id="guessInput"></select>
+        <button id="submitGuess">Submit Guess</button>
+
+        <div class="log" id="chainLog"></div>
+
+        <div class="scoreboard" id="scoreboard"></div>
+
+        <div class="chat-section">
+          <h3>💬 Chat</h3>
+          <div class="chatlog" id="chatMessages"></div>
+          <input id="chatInput" placeholder="Type a message..." />
+          <button id="sendChat">Send</button>
+        </div>
       </div>
     </div>
 
-    <!-- Game Over -->
-    <div id="endCard" class="hidden">
-      <h2>✅ Round <span id="finalRound"></span> Completed</h2>
-      <div class="log" id="finalLog"></div>
-
+    <!-- Final Section -->
+    <div id="finalSection" class="hidden">
+      <h2>✅ Game Over</h2>
       <div class="scoreboard">
-        <h4>Total Score</h4>
-        <table class="score-table" id="finalScores"></table>
-      </div>
-
-      <div class="round-table" id="roundTableBox">
-        <h4>🧾 Round Matrix</h4>
-        <table class="round-table" id="roundMatrixTable"></table>
+        <h4>Final Scores</h4>
+        <div id="finalScoreboard"></div>
       </div>
 
       <div class="btn-group">
-        <button class="btn-orange" id="nextRoundBtn" onclick="startNextRound()">Continue</button>
-        <button class="btn-red" onclick="exitGame()">Exit</button>
-        <button class="btn-green" onclick="startGame()">Start</button>
+        <button class="btn-orange" id="continueGame">Continue</button>
+        <button class="btn-red" id="exitGame">Exit</button>
+        <button class="btn-green" id="restartGame">Start New Round</button>
       </div>
     </div>
   </div>
 
-  <!-- JavaScript Client Logic -->
+  <!-- Client Logic -->
   <script src="client.js"></script>
 </body>
 </html>
