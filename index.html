@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Raja Rani Online Multiplayer Game</title>
+  <title>Raja Rani Multiplayer Game</title>
   https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap
   <style>
     * {
@@ -13,15 +13,19 @@
     body {
       margin: 0;
       font-family: 'Rubik', sans-serif;
-      background: linear-gradient(to bottom right, #ffecd2, #fcb69f);
-      display: flex;
       justify-content: center;
       align-items: flex-start;
       min-height: 100vh;
       padding: 20px;
     }
 
- rgba(0,0,0,0.1);
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
       animation: fadeIn 1s ease-in-out;
     }
 
@@ -130,6 +134,40 @@
       margin-top: 20px;
     }
 
+    .admin-badge {
+      background-color: gold;
+      color: black;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-size: 12px;
+    }
+
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    #loadingSpinner {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #confettiCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
     @media (max-width: 600px) {
       .container {
         padding: 15px;
@@ -146,6 +184,7 @@
   </style>
 </head>
 <body>
+  <canvas id="confettiCanvas"></canvas>
   <div class="container">
     <!-- Setup -->
     <div id="joinSection">
@@ -167,6 +206,7 @@
         <h3>Your Role</h3>
         <p id="myRole"></p>
         <button id="viewRole" class="view-role">View Role</button>
+        <p id="roleCountdown"></p>
       </div>
 
       <div id="gamePlay">
@@ -194,6 +234,7 @@
       <div class="scoreboard">
         <h4>Final Scores</h4>
         <div id="finalScoreboard"></div>
+        <button id="downloadScores">Download Scores</button>
       </div>
 
       <div class="btn-group">
@@ -201,6 +242,11 @@
         <button class="btn-red" id="exitGame">Exit</button>
         <button class="btn-green" id="restartGame">Start New Round</button>
       </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner">
+      <p>Loading... Please wait.</p>
     </div>
   </div>
 
