@@ -1,61 +1,70 @@
-// Raja Rani Game - client.js
+// Save this as client.js
 const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
 
 let playerName = '';
 let playerId = crypto.randomUUID();
 let roomCode = '';
 let currentRound = 1;
+let myRole = '';
+let inactivePlayers = [];
+let guessedPlayers = [];
+let lastSwap = null;
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  if (data.type === 'room_created') {
-    roomCode = data.roomCode;
-    document.getElementById('setupCard').classList.add('hidden');
-    document.getElementById('waitingCard').classList.remove('hidden');
-    document.getElementById('roomCodeDisplay').textContent = roomCode;
-    document.getElementById('playerList').innerHTML = `<li>${playerName}</li>`;
-  }
+  switch (data.type) {
+    case 'room_created':
+      roomCode = data.roomCode;
+      document.getElementById('setupCard').classList.add('hidden');
+      document.getElementById('waitingCard').classList.remove('hidden');
+      document.getElementById('roomCodeDisplay').textContent = roomCode;
+      document.getElementById('playerList').innerHTML = `<li>${playerName}</li>`;
+      break;
 
-  if (data.type === 'player_joined') {
-    document.getElementById('playerList').innerHTML = data.players.map(name => `<li>${name}</li>`).join('');
-  }
+    case 'player_joined':
+      document.getElementById('playerList').innerHTML = data.players.map(name => `<li>${name}</li>`).join('');
+      break;
 
-  if (data.type === 'your_role') {
-    document.getElementById('waitingCard').classList.add('hidden');
-    document.getElementById('roleCard').classList.remove('hidden');
-    document.getElementById('nameDisplay').textContent = data.name;
-    document.getElementById('yourRole').textContent = data.role;
-    document.getElementById('roundNum1').textContent = data.round;
-    setTimeout(() => {
-      document.getElementById('roleCard').classList.add('hidden');
-    }, 4000);
-  }
+    case 'your_role':
+      myRole = data.role;
+      document.getElementById('waitingCard').classList.add('hidden');
+      document.getElementById('roleCard').classList.remove('hidden');
+      document.getElementById('nameDisplay').textContent = data.name;
+      document.getElementById('yourRole').textContent = data.role;
+      document.getElementById('roundNum1').textContent = data.round;
+      inactivePlayers = []; guessedPlayers = []; lastSwap = null;
+      setTimeout(() => {
+        document.getElementById('roleCard').classList.add('hidden');
+      }, 3000);
+      break;
 
-  if (data.type === 'start_chain') {
-    currentRound = data.round;
-    updateGameCard(data);
-  }
+    case 'start_chain':
+      currentRound = data.round;
+      updateGameCard(data);
+      break;
 
-  if (data.type === 'chain_update') {
-    updateGameCard(data);
-    appendLog(data.log[data.log.length - 1]);
-  }
+    case 'chain_update':
+      updateGameCard(data);
+      appendLog(data.log[data.log.length - 1]);
+      break;
 
-  if (data.type === 'game_over') {
-    document.getElementById('gameCard').classList.add('hidden');
-    document.getElementById('endCard').classList.remove('hidden');
-    document.getElementById('finalRound').textContent = data.round;
-    document.getElementById('finalLog').innerHTML = data.log.map(line => `<p>${line}</p>`).join('');
-    updateScoreboard(data.scoreboard, 'finalScores');
-    document.getElementById('nextRoundBtn').style.display = data.canStartNext ? 'block' : 'none';
-  }
+    case 'game_over':
+      document.getElementById('gameCard').classList.add('hidden');
+      document.getElementById('endCard').classList.remove('hidden');
+      document.getElementById('finalRound').textContent = data.round;
+      document.getElementById('finalLog').innerHTML = data.log.map(line => `<p>${line}</p>`).join('');
+      updateScoreboard(data.scoreboard, 'finalScores');
+      document.getElementById('nextRoundBtn').style.display = data.canStartNext ? 'block' : 'none';
+      updateRoundTable(data.roundTable);
+      break;
 
-  if (data.type === 'chat') {
-    const chatLog = document.getElementById('chatLog');
-    const timestamp = new Date(data.time).toLocaleTimeString();
-    chatLog.innerHTML += `<p><strong>${data.name}</strong> [${timestamp}]: ${data.text}</p>`;
-    chatLog.scrollTop = chatLog.scrollHeight;
+    case 'chat':
+      const chatLog = document.getElementById('chatLog');
+      const timestamp = new Date(data.time).toLocaleTimeString();
+      chatLog.innerHTML += `<p><strong>${data.name}</strong> [${timestamp}]: ${data.text}</p>`;
+      chatLog.scrollTop = chatLog.scrollHeight;
+      break;
   }
 };
 
@@ -91,13 +100,15 @@ function updateGameCard(data) {
   document.getElementById('turnPlayer').textContent = data.turnPlayer;
   document.getElementById('roundNum2').textContent = data.round;
 
+  const isMyTurn = playerName === data.turnPlayer;
   const guessInput = document.getElementById('guessInput');
-  guessInput.disabled = playerName !== data.turnPlayer;
-  document.querySelector('button[onclick="makeGuess()"]').disabled = playerName !== data.turnPlayer;
+  guessInput.disabled = !isMyTurn;
+  document.querySelector('button[onclick="makeGuess()"]').disabled = !isMyTurn;
+
   guessInput.innerHTML = '';
-  const names = Array.from(document.querySelectorAll('#playerList li')).map(li => li.textContent);
-  names.forEach(name => {
-    if (name !== playerName) {
+  const allNames = Array.from(document.querySelectorAll('#playerList li')).map(li => li.textContent);
+  allNames.forEach(name => {
+    if (name !== playerName && !inactivePlayers.includes(name) && !guessedPlayers.includes(name)) {
       const opt = document.createElement('option');
       opt.value = name;
       opt.textContent = name;
@@ -106,11 +117,14 @@ function updateGameCard(data) {
   });
 
   updateScoreboard(data.scoreboard, 'scoreboardBox');
-  updateRoundTable(data.roundTable);
+  if (data.roundTable) updateRoundTable(data.roundTable);
 }
 
 function makeGuess() {
   const guess = document.getElementById('guessInput').value;
+  if (!guess) return;
+  lastSwap = { from: playerName, to: guess };
+  guessedPlayers.push(guess);
   socket.send(JSON.stringify({ type: 'guess', roomCode, id: playerId, guess }));
 }
 
@@ -139,8 +153,8 @@ function updateRoundTable(roundTable) {
   if (!roundTable || roundTable.length === 0) return;
 
   const headers = Object.keys(roundTable[0]).filter(k => k !== 'round');
-  const rows = roundTable.map(row => {
-    return `<tr><td>${row.round}</td>` + headers.map(h => `<td>${row[h] || 0}</td>`).join('') + '</tr>';
+  const rows = roundTable.map((row, idx) => {
+    return `<tr><td>${idx + 1}</td>` + headers.map(h => `<td>${row[h] || 0}</td>`).join('') + '</tr>';
   });
 
   box.innerHTML = `
@@ -155,4 +169,4 @@ function updateRoundTable(roundTable) {
 
 function flipCard() {
   document.getElementById('roleFlipCard').classList.toggle('flipped');
-              }
+    }
