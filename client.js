@@ -1,152 +1,163 @@
-// client.js – Updated Client Logic for Raja Rani Game
+// client.js — Handles UI, WebSocket events, and game logic for Raja Rani
+const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com"); // Change this if you host elsewhere
 
-const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
 let playerName = "";
-let playerId = crypto.randomUUID();
+let playerId = uuidv4();
 let roomCode = "";
+let myRole = "";
+let gameStage = "waiting";
+
+// DOM elements
+const joinSection = document.getElementById("joinSection");
+const gameSection = document.getElementById("gameSection");
+const playersList = document.getElementById("playersList");
+const roleCard = document.getElementById("roleCard");
+const myRoleName = document.getElementById("myRole");
+const viewRoleBtn = document.getElementById("viewRole");
+const chainLog = document.getElementById("chainLog");
+const guessInput = document.getElementById("guessInput");
+const submitGuess = document.getElementById("submitGuess");
+const scoreboardDiv = document.getElementById("scoreboard");
+const roundMatrixDiv = document.getElementById("roundMatrix");
+const finalSection = document.getElementById("finalSection");
+const roundTable = document.getElementById("roundTable");
+const finalScoreboard = document.getElementById("finalScoreboard");
+const turnPlayer = document.getElementById("turnPlayer");
+const guessRole = document.getElementById("guessRole");
+const roomCodeText = document.getElementById("roomCodeText");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const sendChat = document.getElementById("sendChat");
+
+function uuidv4() {
+  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+  );
+}
+
+function show(element) {
+  element.classList.remove("hidden");
+}
+function hide(element) {
+  element.classList.add("hidden");
+}
+
+// Button events
+document.getElementById("createRoom").onclick = () => {
+  playerName = document.getElementById("playerName").value;
+  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
+};
+
+document.getElementById("joinRoom").onclick = () => {
+  playerName = document.getElementById("playerName").value;
+  const code = document.getElementById("roomCode").value;
+  roomCode = code;
+  socket.send(JSON.stringify({ type: "join_room", roomCode: code, name: playerName, id: playerId }));
+};
+
+document.getElementById("startGame").onclick = () => {
+  socket.send(JSON.stringify({ type: "start_game", roomCode }));
+};
+
+viewRoleBtn.onclick = () => {
+  show(roleCard);
+  setTimeout(() => hide(roleCard), 4000);
+};
+
+submitGuess.onclick = () => {
+  const guess = guessInput.value;
+  socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
+  guessInput.value = "";
+};
+
+document.getElementById("continueGame").onclick = () => {
+  socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
+  hide(finalSection);
+  show(gameSection);
+};
+
+document.getElementById("exitGame").onclick = () => {
+  alert("You chose to exit the game. Please refresh the page to join a new game.");
+};
+
+document.getElementById("restartGame").onclick = () => {
+  socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
+  hide(finalSection);
+  show(gameSection);
+};
+
+sendChat.onclick = () => {
+  const text = chatInput.value.trim();
+  if (text) {
+    socket.send(JSON.stringify({ type: "chat", roomCode, name: playerName, text }));
+    chatInput.value = "";
+  }
+};
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
   if (data.type === "room_created") {
     roomCode = data.roomCode;
-    document.getElementById("setupCard").classList.add("hidden");
-    document.getElementById("waitingCard").classList.remove("hidden");
-    document.getElementById("roomCodeDisplay").textContent = roomCode;
-    updatePlayerList([playerName]);
+    roomCodeText.textContent = roomCode;
+    hide(joinSection);
+    show(gameSection);
   }
 
   if (data.type === "player_joined") {
-    updatePlayerList(data.players);
+    playersList.innerHTML = data.players.map((name) => `<li>${name}</li>`).join("");
   }
 
   if (data.type === "your_role") {
-    document.getElementById("waitingCard").classList.add("hidden");
-    document.getElementById("roleCard").classList.remove("hidden");
-    document.getElementById("nameDisplay").textContent = data.name;
-    document.getElementById("yourRole").textContent = data.role;
-    document.getElementById("roundNum1").textContent = data.round;
-
-    // Hide role after 3 seconds, allow flip on click
-    const flipCard = document.getElementById("roleFlipCard");
-    flipCard.classList.remove("flipped");
-    setTimeout(() => {
-      flipCard.classList.remove("flipped");
-    }, 3000);
+    myRole = data.role;
+    myRoleName.textContent = `${data.name}, you are ${data.role}`;
+    show(roleCard);
+    setTimeout(() => hide(roleCard), 4000);
   }
 
   if (data.type === "start_chain") {
-    updateGameCard(data);
+    turnPlayer.textContent = data.turnPlayer;
+    guessRole.textContent = data.nextRole;
+    show(guessInput);
+    updateScoreboard(data.scoreboard);
   }
 
   if (data.type === "chain_update") {
-    updateGameCard(data);
-    appendLog(data.log[data.log.length - 1]);
+    turnPlayer.textContent = data.turnPlayer;
+    guessRole.textContent = data.nextRole;
+    updateScoreboard(data.scoreboard);
+    chainLog.innerHTML = data.log.map((l) => `<p>${l}</p>`).join("");
   }
 
   if (data.type === "game_over") {
-    document.getElementById("gameCard").classList.add("hidden");
-    document.getElementById("endCard").classList.remove("hidden");
-    document.getElementById("finalRound").textContent = data.round;
-    document.getElementById("finalLog").innerHTML = data.log.map(l => `<p>${l}</p>`).join('');
-    updateScoreboard(data.scoreboard, "finalScores");
-    document.getElementById("nextRoundBtn").style.display = data.canStartNext ? "block" : "none";
+    hide(gameSection);
+    show(finalSection);
+    finalScoreboard.innerHTML = data.scoreboard.map((p) => `<p>${p.name}: ${p.score}</p>`).join("");
+    renderRoundMatrix(data.roundTable);
   }
 
   if (data.type === "chat") {
-    const chatLog = document.getElementById("chatLog");
-    const time = new Date(data.time).toLocaleTimeString();
-    chatLog.innerHTML += `<p><strong>${data.name}</strong> [${time}]: ${data.text}</p>`;
-    chatLog.scrollTop = chatLog.scrollHeight;
+    const msg = document.createElement("div");
+    msg.textContent = `${data.name}: ${data.text}`;
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 };
 
-function createRoom() {
-  playerName = document.getElementById("playerName").value.trim();
-  if (!playerName) return alert("Enter your name");
-  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
+function updateScoreboard(scores) {
+  scoreboardDiv.innerHTML = "<h3>Live Scoreboard</h3>" +
+    scores.map((s) => `<p>${s.name}: ${s.score}</p>`).join("");
 }
 
-function joinRoom() {
-  playerName = document.getElementById("playerName").value.trim();
-  roomCode = document.getElementById("joinCode").value.trim();
-  if (!playerName || !roomCode) return alert("Enter name and code");
-  socket.send(JSON.stringify({ type: "join_room", name: playerName, roomCode, id: playerId }));
-  document.getElementById("setupCard").classList.add("hidden");
-  document.getElementById("waitingCard").classList.remove("hidden");
-  document.getElementById("roomCodeDisplay").textContent = roomCode;
-}
-
-function startGame() {
-  socket.send(JSON.stringify({ type: "start_game", roomCode }));
-}
-
-function startNextRound() {
-  socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
-  document.getElementById("endCard").classList.add("hidden");
-}
-
-function makeGuess() {
-  const guess = document.getElementById("guessInput").value;
-  socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
-}
-
-function sendChat() {
-  const input = document.getElementById("chatInput");
-  const text = input.value.trim();
-  if (!text) return;
-  socket.send(JSON.stringify({ type: "chat", roomCode, name: playerName, text }));
-  input.value = "";
-}
-
-function updatePlayerList(names) {
-  document.getElementById("playerList").innerHTML = names.map(n => `<li>${n}</li>`).join('');
-}
-
-function updateGameCard(data) {
-  document.getElementById("roleCard").classList.add("hidden");
-  document.getElementById("gameCard").classList.remove("hidden");
-  document.getElementById("guessRole").textContent = data.nextRole;
-  document.getElementById("turnPlayer").textContent = data.turnPlayer;
-  document.getElementById("roundNum2").textContent = data.round;
-
-  const isMyTurn = playerName === data.turnPlayer;
-  document.getElementById("guessInput").disabled = !isMyTurn;
-  document.querySelector('button[onclick="makeGuess()"]')?.toggleAttribute("disabled", !isMyTurn);
-
-  const guessInput = document.getElementById("guessInput");
-  guessInput.innerHTML = "";
-  const names = Array.from(document.querySelectorAll("#playerList li")).map(li => li.textContent);
-  names.forEach(name => {
-    if (name !== playerName) {
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      guessInput.appendChild(opt);
-    }
+function renderRoundMatrix(row) {
+  let html = `<table><thead><tr><th>Round</th>`;
+  Object.keys(row).forEach((key) => {
+    if (key !== "round") html += `<th>${key}</th>`;
   });
-
-  updateScoreboard(data.scoreboard, "scoreboardBox");
-  updateRoundTable(data.roundTable);
-}
-
-function updateScoreboard(scores, id) {
-  const box = document.getElementById(id);
-  box.innerHTML = `<strong>Total Scores</strong><ul>` +
-    scores.map(s => `<li>${s.name}: ${s.score}</li>`).join('') + `</ul>`;
-}
-
-function updateRoundTable(roundTable) {
-  const box = document.getElementById("roundTableBox");
-  if (!roundTable || roundTable.length === 0) return;
-  const headers = Object.keys(roundTable[0]);
-  box.innerHTML = `<table><thead><tr>` +
-    headers.map(h => `<th>${h}</th>`).join('') +
-    `</tr></thead><tbody>` +
-    roundTable.map(row => `<tr>` + headers.map(h => `<td>${row[h]}</td>`).join('') + `</tr>`).join('') +
-    `</tbody></table>`;
-}
-
-function flipCard() {
-  document.getElementById("roleFlipCard").classList.toggle("flipped");
+  html += `</tr></thead><tbody><tr><td>${row.round}</td>`;
+  Object.keys(row).forEach((key) => {
+    if (key !== "round") html += `<td>${row[key]}</td>`;
+  });
+  html += `</tr></tbody></table>`;
+  roundMatrixDiv.innerHTML = html;
 }
