@@ -3,9 +3,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Raja Rani - Online Multiplayer Game</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
     body {
@@ -17,13 +17,14 @@
       justify-content: center;
       align-items: center;
       padding: 20px;
+      flex-direction: column;
     }
     .card {
       background: rgba(255, 255, 255, 0.95);
       border-radius: 16px;
       padding: 30px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      max-width: 500px;
+      max-width: 600px;
       width: 100%;
       margin-bottom: 20px;
       animation: fadeInUp 0.5s ease;
@@ -51,6 +52,11 @@
     button:hover {
       background: linear-gradient(to right, #7b1fa2, #303f9f);
     }
+
+    .btn-start { background-color: #4caf50 !important; }
+    .btn-exit { background-color: #f44336 !important; }
+    .btn-continue { background-color: #ff9800 !important; }
+
     .log, .chatlog, .scoreboard, .player-table {
       background: #f9f9f9;
       padding: 15px;
@@ -101,23 +107,47 @@
       0% { opacity: 0; transform: translateY(20px); }
       100% { opacity: 1; transform: translateY(0); }
     }
+
+    .scoreboard ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .action-buttons button {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+    }
+
+    #roundTableBox {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
+  <!-- Setup Card -->
   <div class="card" id="setupCard">
-    <h2>Raja Rani - Online</h2>
+    <h2>Raja Rani - Online Multiplayer</h2>
     <input id="playerName" placeholder="Enter your name" />
     <button onclick="createRoom()">Create Room</button>
     <input id="joinCode" placeholder="Or enter room code to join" />
     <button onclick="joinRoom()">Join Room</button>
   </div>
 
+  <!-- Waiting Lobby -->
   <div class="card hidden" id="waitingCard">
     <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
     <ul id="playerList"></ul>
     <button onclick="startGame()">Start Game</button>
   </div>
 
+  <!-- Role Reveal -->
   <div class="card hidden" id="roleCard">
     <h2>Hello <span id="nameDisplay"></span></h2>
     <p>Round <span id="roundNum1"></span></p>
@@ -129,19 +159,23 @@
         </div>
         <div class="flip-card-back">
           <p>Your Role: <strong id="yourRole"></strong></p>
+          <button onclick="flipCard()">Hide</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Gameplay -->
   <div class="card hidden" id="gameCard">
     <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
     <p>Guess who is <strong id="guessRole"></strong></p>
     <select id="guessInput"></select>
     <button onclick="makeGuess()">Submit Guess</button>
+
     <div class="log" id="logBox"></div>
     <div class="scoreboard" id="scoreboardBox"></div>
     <div class="player-table" id="roundTableBox"></div>
+
     <div class="chat-section">
       <h3>Chat</h3>
       <div class="chatlog" id="chatLog"></div>
@@ -150,14 +184,18 @@
     </div>
   </div>
 
+  <!-- Game Over -->
   <div class="card hidden" id="endCard">
     <h2>Game Over - Round <span id="finalRound"></span></h2>
     <div class="log" id="finalLog"></div>
     <div class="scoreboard" id="finalScores"></div>
-    <button id="nextRoundBtn" onclick="startNextRound()" style="display:none">Start Next Round</button>
+    <div class="action-buttons">
+      <button class="btn-continue" onclick="startNextRound()" id="nextRoundBtn">Continue</button>
+      <button class="btn-exit" onclick="location.reload()">Exit</button>
+    </div>
   </div>
 
-  <!-- JavaScript Logic Here -->
+  <!-- JavaScript -->
   <script src="./client.js"></script>
 </body>
 </html>
