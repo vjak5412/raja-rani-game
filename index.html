@@ -6,10 +6,7 @@
   <title>Raja Rani Online Multiplayer Game</title>
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: 'Rubik', sans-serif;
@@ -20,7 +17,6 @@
       min-height: 100vh;
       padding: 20px;
     }
-
     .container {
       width: 100%;
       max-width: 900px;
@@ -30,17 +26,11 @@
       box-shadow: 0 8px 20px rgba(0,0,0,0.1);
       animation: fadeIn 1s ease-in-out;
     }
-
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-    h1, h2, h3 {
-      margin: 0 0 10px;
-      color: #333;
-    }
-
+    h1, h2, h3 { margin: 0 0 10px; color: #333; }
     input, select, button, textarea {
       width: 100%;
       padding: 10px;
@@ -50,7 +40,6 @@
       border-radius: 6px;
       font-size: 16px;
     }
-
     button {
       background-color: #ff8a00;
       color: white;
@@ -58,15 +47,8 @@
       cursor: pointer;
       transition: background 0.3s ease;
     }
-
-    button:hover {
-      background-color: #e57700;
-    }
-
-    .hidden {
-      display: none;
-    }
-
+    button:hover { background-color: #e57700; }
+    .hidden { display: none; }
     .log, .chatlog {
       background: #f9f9f9;
       padding: 10px;
@@ -77,7 +59,6 @@
       margin-top: 10px;
       border-radius: 6px;
     }
-
     .scoreboard, .round-table {
       background: #fff7d1;
       padding: 10px;
@@ -85,17 +66,12 @@
       border-radius: 6px;
       border: 1px solid #ccc;
     }
-
-    .scoreboard h4, .round-table h4 {
-      margin-top: 0;
-    }
-
+    .scoreboard h4, .round-table h4 { margin-top: 0; }
     .score-table, .round-table table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
     }
-
     .score-table th, .score-table td,
     .round-table th, .round-table td {
       border: 1px solid #aaa;
@@ -103,21 +79,17 @@
       text-align: center;
       background-color: #fff;
     }
-
     .btn-group {
       display: flex;
       gap: 10px;
       margin-top: 15px;
     }
-
     .btn-orange { background: orange; color: #fff; }
     .btn-red { background: crimson; color: #fff; }
     .btn-green { background: seagreen; color: #fff; }
-
     .btn-orange:hover { background: darkorange; }
     .btn-red:hover { background: firebrick; }
     .btn-green:hover { background: forestgreen; }
-
     .view-role {
       background-color: #2b90d9;
       color: white;
@@ -127,10 +99,7 @@
       border-radius: 5px;
       cursor: pointer;
     }
-
-    .view-role:hover {
-      background-color: #217dbb;
-    }
+    .view-role:hover { background-color: #217dbb; }
   </style>
 </head>
 <body>
@@ -139,68 +108,62 @@
     <div id="setupCard">
       <h1>🎭 Raja Rani Multiplayer Game</h1>
       <input type="text" id="playerName" placeholder="Enter your name"/>
-      <button onclick="createRoom()">Create Room</button>
-      <input type="text" id="joinCode" placeholder="Join with code"/>
-      <button onclick="joinRoom()">Join Room</button>
+      <button id="createRoom">Create Room</button>
+      <input type="text" id="roomCode" placeholder="Join with code"/>
+      <button id="joinRoom">Join Room</button>
     </div>
 
     <!-- Waiting -->
-    <div id="waitingCard" class="hidden">
-      <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
+    <div id="joinSection" class="hidden">
+      <h2>Room Code: <span id="roomCodeText"></span></h2>
       <h3>Players Joined:</h3>
-      <ul id="playerList"></ul>
-      <button onclick="startGame()">Start Game</button>
+      <ul id="playersList"></ul>
+      <button id="startGame">Start Game</button>
     </div>
 
     <!-- Role Display -->
     <div id="roleCard" class="hidden">
       <h2>Welcome <span id="nameDisplay"></span></h2>
-      <p>Your Role (Round <span id="roundNum1"></span>): <strong id="yourRole"></strong>
-        <button class="view-role" onclick="revealRole()">View</button>
+      <p>Your Role (Round <span id="roundNum1"></span>): <strong id="myRole"></strong>
+        <button class="view-role" id="viewRole">View</button>
       </p>
     </div>
 
     <!-- Game Area -->
-    <div id="gameCard" class="hidden">
+    <div id="gameSection" class="hidden">
       <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
       <p>Guess who is the <strong id="guessRole"></strong></p>
       <select id="guessInput"></select>
-      <button onclick="makeGuess()">Submit Guess</button>
+      <button id="submitGuess">Submit Guess</button>
 
-      <div class="log" id="logBox"></div>
+      <div class="log" id="chainLog"></div>
 
-      <div class="scoreboard">
-        <h4>Scoreboard</h4>
-        <table class="score-table" id="scoreboardTable"></table>
-      </div>
+      <div class="scoreboard" id="scoreboard"></div>
 
       <div class="chat-section">
         <h3>💬 Chat</h3>
-        <div class="chatlog" id="chatLog"></div>
-        <input id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChat()" />
-        <button onclick="sendChat()">Send</button>
+        <div class="chatlog" id="chatMessages"></div>
+        <input id="chatInput" placeholder="Type a message..." />
+        <button id="sendChat">Send</button>
       </div>
     </div>
 
     <!-- Game Over -->
-    <div id="endCard" class="hidden">
+    <div id="finalSection" class="hidden">
       <h2>✅ Round <span id="finalRound"></span> Completed</h2>
       <div class="log" id="finalLog"></div>
-
       <div class="scoreboard">
         <h4>Total Score</h4>
-        <table class="score-table" id="finalScores"></table>
+        <div id="finalScoreboard"></div>
       </div>
-
-      <div class="round-table" id="roundTableBox">
+      <div class="round-table" id="roundMatrix">
         <h4>🧾 Round Matrix</h4>
-        <table class="round-table" id="roundMatrixTable"></table>
+        <div id="roundTable"></div>
       </div>
-
       <div class="btn-group">
-        <button class="btn-orange" id="nextRoundBtn" onclick="startNextRound()">Continue</button>
-        <button class="btn-red" onclick="exitGame()">Exit</button>
-        <button class="btn-green" onclick="startGame()">Start</button>
+        <button class="btn-orange" id="continueGame">Continue</button>
+        <button class="btn-red" id="exitGame">Exit</button>
+        <button class="btn-green" id="restartGame">Start</button>
       </div>
     </div>
   </div>
