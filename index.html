@@ -1,3 +1,4 @@
+<!-- FULLY UPDATED Raja Rani Multiplayer Game Interface -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,157 +10,83 @@
     * {
       box-sizing: border-box;
     }
-
     body {
       margin: 0;
       font-family: 'Rubik', sans-serif;
+      background: #f4f4f4;
+      min-height: 100vh;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-      background: #f0f4f8;
       padding: 20px;
     }
-
     .container {
       width: 100%;
-      max-width: 1000px;
+      max-width: 900px;
       background: #fff;
-      border-radius: 15px;
+      border-radius: 10px;
       padding: 30px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-      animation: fadeIn 0.8s ease-in-out;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      animation: fadeIn 0.8s ease-in;
     }
-
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(30px); }
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
     h1, h2, h3 {
-      margin: 0 0 10px;
+      margin-bottom: 10px;
       color: #333;
     }
-
-    input, select, button, textarea {
-      width: 100%;
+    input, select, button {
       padding: 10px;
-      margin-top: 10px;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+      margin: 8px 0;
+      width: 100%;
       font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
     }
-
     button {
-      background-color: #ff8a00;
-      color: white;
-      font-weight: bold;
       cursor: pointer;
+      font-weight: bold;
       transition: background 0.3s ease;
     }
-
     button:hover {
-      background-color: #e57700;
+      opacity: 0.9;
     }
-
     .hidden {
       display: none;
     }
-
+    .btn-orange { background-color: orange; color: white; }
+    .btn-red { background-color: crimson; color: white; }
+    .btn-green { background-color: seagreen; color: white; }
+    .btn-view { background: dodgerblue; color: white; }
     .log, .chatlog {
       background: #f9f9f9;
-      padding: 10px;
       border: 1px solid #ddd;
+      padding: 10px;
       height: 150px;
       overflow-y: auto;
-      font-size: 14px;
+      margin-top: 10px;
       border-radius: 6px;
     }
-
-    .scoreboard, .round-table {
-      background: #fff7d1;
+    .scoreboard {
+      background: #fff9c4;
+      border: 1px solid #bbb;
       padding: 10px;
       margin-top: 10px;
       border-radius: 6px;
-      border: 1px solid #ccc;
     }
-
-    .scoreboard h4, .round-table h4 {
-      margin-top: 0;
-    }
-
-    .score-table, .round-table table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    .score-table th, .score-table td,
-    .round-table th, .round-table td {
-      border: 1px solid #aaa;
-      padding: 6px 10px;
-      text-align: center;
-      background-color: #fff;
-    }
-
-    .btn-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 15px;
-    }
-
-    .btn-orange { background: orange; color: #fff; }
-    .btn-red { background: crimson; color: #fff; }
-    .btn-green { background: seagreen; color: #fff; }
-
-    .btn-orange:hover { background: darkorange; }
-    .btn-red:hover { background: firebrick; }
-    .btn-green:hover { background: forestgreen; }
-
-    .view-role {
-      background-color: #2b90d9;
-      color: white;
-      padding: 6px 14px;
-      font-size: 14px;
-      margin-left: 10px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    .view-role:hover {
-      background-color: #217dbb;
-    }
-
     .chat-section {
       margin-top: 20px;
     }
-
     .admin-badge {
       background-color: gold;
       color: black;
       font-weight: bold;
       padding: 2px 6px;
       border-radius: 4px;
-      margin-left: 6px;
       font-size: 12px;
+      margin-left: 6px;
     }
-
-    .avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      margin-right: 6px;
-      vertical-align: middle;
-    }
-
-    #loadingSpinner {
-      display: none;
-      text-align: center;
-      margin-top: 20px;
-    }
-
     #confettiCanvas {
       position: fixed;
       top: 0;
@@ -169,18 +96,12 @@
       pointer-events: none;
       z-index: 9999;
     }
-
     @media (max-width: 600px) {
       .container {
         padding: 15px;
       }
-
       .log, .chatlog {
         height: 100px;
-      }
-
-      input, select, button {
-        font-size: 14px;
       }
     }
   </style>
@@ -188,41 +109,35 @@
 <body>
   <canvas id="confettiCanvas"></canvas>
   <div class="container">
-    <!-- Setup Section -->
     <div id="joinSection">
-      <h1>🎭 Raja Rani Multiplayer Game</h1>
+      <h1>🎭 Raja Rani Multiplayer</h1>
       <input type="text" id="playerName" placeholder="Enter your name" />
       <button id="createRoom">Create Room</button>
       <input type="text" id="roomCode" placeholder="Join with code" />
       <button id="joinRoom">Join Room</button>
     </div>
 
-    <!-- Game Area -->
     <div id="gameSection" class="hidden">
-      <h2>Room Code: <span id="roomCodeText"></span></h2>
-      <h3>Players Joined:</h3>
+      <h2>Room: <span id="roomCodeText"></span></h2>
+      <h3>Players:</h3>
       <ul id="playersList"></ul>
-      <button id="startGame">Start Game</button>
+      <button id="startGame" class="btn-green">Start Game</button>
 
-      <!-- Role Display -->
       <div id="roleCard" class="hidden">
         <h3>Your Role</h3>
         <p id="myRole"></p>
-        <button id="viewRole" class="view-role">View Role</button>
+        <button id="viewRole" class="btn-view">View Role</button>
         <p id="roleCountdown"></p>
       </div>
 
-      <!-- Game Interaction -->
       <div id="gamePlay">
         <h3>Turn: <span id="turnPlayer"></span></h3>
-        <p>Guess who is the <strong id="guessRole"></strong></p>
+        <p>Guess who is <strong id="guessRole"></strong></p>
         <select id="guessInput"></select>
         <button id="submitGuess">Submit Guess</button>
-
         <div class="log" id="chainLog"></div>
         <div class="scoreboard" id="scoreboard"></div>
 
-        <!-- Chat -->
         <div class="chat-section">
           <h3>💬 Chat</h3>
           <div class="chatlog" id="chatMessages"></div>
@@ -232,9 +147,8 @@
       </div>
     </div>
 
-    <!-- Final Section -->
     <div id="finalSection" class="hidden">
-      <h2>✅ Game Over</h2>
+      <h2>🏁 Round Over</h2>
       <div class="scoreboard">
         <h4>Final Scores</h4>
         <div id="finalScoreboard"></div>
@@ -247,13 +161,11 @@
       </div>
     </div>
 
-    <!-- Loading Spinner -->
-    <div id="loadingSpinner">
+    <div id="loadingSpinner" style="display:none;text-align:center;margin-top:20px;">
       <p>Loading... Please wait.</p>
     </div>
   </div>
 
-  <!-- Client Logic -->
   <script src="client.js"></script>
 </body>
 </html>
