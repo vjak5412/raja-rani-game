@@ -1,10 +1,11 @@
 {
   "name": "raja-rani-game",
-  "version": "1.0.0",
-  "description": "Raja Rani Multiplayer Game with dynamic roles, live scoreboard, chat, and real-time gameplay",
+  "version": "1.1.0",
+  "description": "Online multiplayer Raja Rani game with roles, chat, and real-time gameplay",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "keywords": [
     "raja",
@@ -20,6 +21,9 @@
   "dependencies": {
     "uuid": "^9.0.0",
     "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
   },
   "engines": {
     "node": ">=16.0.0"
