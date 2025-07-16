@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Raja Rani Multiplayer Game</title>
-  https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -13,24 +13,26 @@
     body {
       margin: 0;
       font-family: 'Rubik', sans-serif;
+      display: flex;
       justify-content: center;
       align-items: flex-start;
       min-height: 100vh;
+      background: #f0f4f8;
       padding: 20px;
     }
 
     .container {
       width: 100%;
-      max-width: 900px;
+      max-width: 1000px;
       background: #fff;
       border-radius: 15px;
       padding: 30px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-      animation: fadeIn 1s ease-in-out;
+      animation: fadeIn 0.8s ease-in-out;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
+      from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
@@ -72,7 +74,6 @@
       height: 150px;
       overflow-y: auto;
       font-size: 14px;
-      margin-top: 10px;
       border-radius: 6px;
     }
 
@@ -104,6 +105,7 @@
 
     .btn-group {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       margin-top: 15px;
     }
@@ -119,7 +121,7 @@
     .view-role {
       background-color: #2b90d9;
       color: white;
-      padding: 5px 12px;
+      padding: 6px 14px;
       font-size: 14px;
       margin-left: 10px;
       border-radius: 5px;
@@ -186,12 +188,12 @@
 <body>
   <canvas id="confettiCanvas"></canvas>
   <div class="container">
-    <!-- Setup -->
+    <!-- Setup Section -->
     <div id="joinSection">
       <h1>🎭 Raja Rani Multiplayer Game</h1>
-      <input type="text" id="playerName" placeholder="Enter your name"/>
+      <input type="text" id="playerName" placeholder="Enter your name" />
       <button id="createRoom">Create Room</button>
-      <input type="text" id="roomCode" placeholder="Join with code"/>
+      <input type="text" id="roomCode" placeholder="Join with code" />
       <button id="joinRoom">Join Room</button>
     </div>
 
@@ -202,6 +204,7 @@
       <ul id="playersList"></ul>
       <button id="startGame">Start Game</button>
 
+      <!-- Role Display -->
       <div id="roleCard" class="hidden">
         <h3>Your Role</h3>
         <p id="myRole"></p>
@@ -209,6 +212,7 @@
         <p id="roleCountdown"></p>
       </div>
 
+      <!-- Game Interaction -->
       <div id="gamePlay">
         <h3>Turn: <span id="turnPlayer"></span></h3>
         <p>Guess who is the <strong id="guessRole"></strong></p>
@@ -216,9 +220,9 @@
         <button id="submitGuess">Submit Guess</button>
 
         <div class="log" id="chainLog"></div>
-
         <div class="scoreboard" id="scoreboard"></div>
 
+        <!-- Chat -->
         <div class="chat-section">
           <h3>💬 Chat</h3>
           <div class="chatlog" id="chatMessages"></div>
@@ -236,7 +240,6 @@
         <div id="finalScoreboard"></div>
         <button id="downloadScores">Download Scores</button>
       </div>
-
       <div class="btn-group">
         <button class="btn-orange" id="continueGame">Continue</button>
         <button class="btn-red" id="exitGame">Exit</button>
