@@ -1,7 +1,7 @@
 {
   "name": "raja-rani-game",
-  "version": "1.1.0",
-  "description": "Online multiplayer Raja Rani game with roles, chat, and real-time gameplay",
+  "version": "2.0.0",
+  "description": "Online multiplayer Raja Rani game with roles, chat, scoreboard, and real-time gameplay",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -14,7 +14,9 @@
     "websocket",
     "game",
     "real-time",
-    "chat"
+    "chat",
+    "scoreboard",
+    "nodejs"
   ],
   "author": "Your Name",
   "license": "MIT",
