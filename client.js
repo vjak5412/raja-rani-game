@@ -1,222 +1,152 @@
-// client.js
+// client.js - Raja Rani Game Client Script (Updated with Fixes & Scoreboard UI)
 
 const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
-
-let playerName = "";
-let playerId = uuidv4();
+let myId = Math.random().toString(36).substr(2, 9);
+let myRole = null;
 let roomCode = "";
-let myRole = "";
 let isAdmin = false;
-let roleViewTimer = null;
-let chatCooldown = false;
-let scoreData = [];
 
+// DOM Elements
 const joinSection = document.getElementById("joinSection");
 const gameSection = document.getElementById("gameSection");
-const playersList = document.getElementById("playersList");
 const roleCard = document.getElementById("roleCard");
-const myRoleName = document.getElementById("myRole");
-const viewRoleBtn = document.getElementById("viewRole");
-const roleCountdown = document.getElementById("roleCountdown");
+const roleText = document.getElementById("roleText");
+const viewBtn = document.getElementById("viewRoleBtn");
+const playersDiv = document.getElementById("playersList");
+const guessArea = document.getElementById("guessSection");
+const guessSelect = document.getElementById("guessSelect");
+const scoreBoard = document.getElementById("scoreboardTable");
 const chainLog = document.getElementById("chainLog");
-const guessInput = document.getElementById("guessInput");
-const submitGuess = document.getElementById("submitGuess");
-const scoreboardDiv = document.getElementById("scoreboard");
-const finalSection = document.getElementById("finalSection");
-const finalScoreboard = document.getElementById("finalScoreboard");
-const turnPlayer = document.getElementById("turnPlayer");
-const guessRole = document.getElementById("guessRole");
-const roomCodeText = document.getElementById("roomCodeText");
-const chatMessages = document.getElementById("chatMessages");
+const chatBox = document.getElementById("chatBox");
 const chatInput = document.getElementById("chatInput");
-const sendChat = document.getElementById("sendChat");
-const loadingSpinner = document.getElementById("loadingSpinner");
-const confettiCanvas = document.getElementById("confettiCanvas");
-const downloadScores = document.getElementById("downloadScores");
+const sendBtn = document.getElementById("sendChat");
+const continueBtn = document.getElementById("continueBtn");
+const exitBtn = document.getElementById("exitBtn");
+const startBtn = document.getElementById("startBtn");
 
-function uuidv4() {
-  return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-    (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-  );
-}
-
-function show(element) {
-  element.classList.remove("hidden");
-}
-function hide(element) {
-  element.classList.add("hidden");
-}
-
-function startLoading() {
-  loadingSpinner.style.display = "block";
-}
-function stopLoading() {
-  loadingSpinner.style.display = "none";
-}
-
-function triggerConfetti() {
-  // Placeholder for confetti animation
-  console.log("🎉 Confetti triggered!");
-}
-
-function sanitize(text) {
-  return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-document.getElementById("createRoom").onclick = () => {
-  playerName = document.getElementById("playerName").value.trim();
-  if (!playerName) return alert("Enter your name");
+// Join Room Logic
+document.getElementById("createRoomBtn").onclick = () => {
+  const name = document.getElementById("playerName").value;
+  socket.send(JSON.stringify({ type: "create_room", name, id: myId }));
   isAdmin = true;
-  startLoading();
-  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
 };
 
-document.getElementById("joinRoom").onclick = () => {
-  playerName = document.getElementById("playerName").value.trim();
-  const code = document.getElementById("roomCode").value.trim();
-  if (!playerName || !code) return alert("Enter name and room code");
+document.getElementById("joinRoomBtn").onclick = () => {
+  const name = document.getElementById("playerName").value;
+  const code = document.getElementById("roomCode").value.toUpperCase();
+  socket.send(JSON.stringify({ type: "join_room", name, id: myId, roomCode: code }));
   roomCode = code;
-  startLoading();
-  socket.send(JSON.stringify({ type: "join_room", roomCode: code, name: playerName, id: playerId }));
 };
 
-document.getElementById("startGame").onclick = () => {
-  if (!isAdmin) return alert("Only admin can start the game");
-  socket.send(JSON.stringify({ type: "start_game", roomCode, id: playerId }));
-  document.getElementById("startGame").disabled = true;
+// Start Game (Admin Only)
+document.getElementById("startGameBtn").onclick = () => {
+  if (isAdmin) socket.send(JSON.stringify({ type: "start_game", roomCode }));
 };
 
-viewRoleBtn.onclick = () => {
-  show(roleCard);
-  viewRoleBtn.disabled = true;
-  let countdown = 4;
-  roleCountdown.textContent = `Role visible for ${countdown} seconds`;
-  roleViewTimer = setInterval(() => {
-    countdown--;
-    roleCountdown.textContent = `Role visible for ${countdown} seconds`;
-    if (countdown <= 0) {
-      clearInterval(roleViewTimer);
-      hide(roleCard);
-      viewRoleBtn.disabled = false;
-      roleCountdown.textContent = "";
-    }
-  }, 1000);
+// Make a Guess
+document.getElementById("makeGuessBtn").onclick = () => {
+  const guess = guessSelect.value;
+  socket.send(JSON.stringify({ type: "guess", guess, id: myId, roomCode }));
 };
 
-submitGuess.onclick = () => {
-  const guess = guessInput.value;
-  if (!guess) return alert("Select a player to guess");
-  socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
-  guessInput.value = "";
-  submitGuess.disabled = true;
-  setTimeout(() => submitGuess.disabled = false, 2000);
+// View My Role Button
+viewBtn.onclick = () => {
+  roleCard.style.display = "block";
+  setTimeout(() => roleCard.style.display = "none", 3000);
 };
 
-document.getElementById("continueGame").onclick = () => {
+// Continue / Exit / Start Buttons
+continueBtn.onclick = () => {
   socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
-  hide(finalSection);
-  show(gameSection);
 };
 
-document.getElementById("exitGame").onclick = () => {
-  alert("You chose to exit the game. Please refresh the page to join a new game.");
+exitBtn.onclick = () => {
+  location.reload();
 };
 
-document.getElementById("restartGame").onclick = () => {
-  socket.send(JSON.stringify({ type: "start_next_round", roomCode }));
-  hide(finalSection);
-  show(gameSection);
+startBtn.onclick = () => {
+  if (isAdmin) socket.send(JSON.stringify({ type: "start_game", roomCode }));
 };
 
-sendChat.onclick = () => {
-  const text = chatInput.value.trim();
-  if (text && !chatCooldown) {
-    socket.send(JSON.stringify({ type: "chat", roomCode, name: playerName, text: sanitize(text) }));
+// Chat Send
+sendBtn.onclick = () => {
+  const msg = chatInput.value;
+  if (msg) {
+    socket.send(JSON.stringify({ type: "chat", roomCode, name: myId, text: msg }));
     chatInput.value = "";
-    chatCooldown = true;
-    setTimeout(() => chatCooldown = false, 1000);
   }
 };
 
-downloadScores.onclick = () => {
-  const blob = new Blob([scoreData.join("\n")], { type: "text/plain" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = `raja_rani_scores_${roomCode}.txt`;
-  link.click();
-};
-
-socket.onopen = () => {
-  stopLoading();
-};
-
+// Socket Message Handling
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
   if (data.type === "room_created") {
     roomCode = data.roomCode;
-    roomCodeText.textContent = roomCode;
-    hide(joinSection);
-    show(gameSection);
-    stopLoading();
+    document.getElementById("roomCodeDisplay").textContent = roomCode;
+    joinSection.style.display = "none";
+    gameSection.style.display = "block";
   }
 
   if (data.type === "player_joined") {
-    playersList.innerHTML = data.players.map((name, i) => {
-      const badge = i === 0 ? '<span class="admin-badge">Admin</span>' : '';
-      return `<li>${sanitize(name)} ${badge}</li>`;
-    }).join("");
+    playersDiv.innerHTML = data.players.map(p => `<div>${p}</div>`).join("");
   }
 
   if (data.type === "your_role") {
     myRole = data.role;
-    myRoleName.textContent = `${data.name}, you are ${data.role}`;
-    show(roleCard);
-    setTimeout(() => hide(roleCard), 4000);
+    roleText.innerText = `You are the ${data.role}`;
+    roleCard.style.display = "block";
+    setTimeout(() => roleCard.style.display = "none", 4000);
   }
 
   if (data.type === "start_chain") {
-    turnPlayer.textContent = data.turnPlayer;
-    guessRole.textContent = data.nextRole;
+    chainLog.innerHTML = "";
+    guessArea.style.display = "block";
+    guessSelect.innerHTML = "";
+    data.scoreboard.forEach(player => {
+      if (player.name !== myId) {
+        const opt = document.createElement("option");
+        opt.value = player.name;
+        opt.text = player.name;
+        guessSelect.appendChild(opt);
+      }
+    });
     updateScoreboard(data.scoreboard);
-    updateGuessDropdown(data.scoreboard);
   }
 
   if (data.type === "chain_update") {
-    turnPlayer.textContent = data.turnPlayer;
-    guessRole.textContent = data.nextRole;
+    const latest = data.log[data.log.length - 1];
+    const li = document.createElement("li");
+    li.textContent = latest;
+    chainLog.appendChild(li);
     updateScoreboard(data.scoreboard);
-    chainLog.innerHTML = data.log.map((l) => `<p>${sanitize(l)}</p>`).join("");
-    updateGuessDropdown(data.scoreboard);
   }
 
   if (data.type === "game_over") {
-    hide(gameSection);
-    show(finalSection);
-    scoreData = data.scoreboard.map((p) => `${p.name}: ${p.score}`);
-    finalScoreboard.innerHTML = data.scoreboard.map((p, i) => {
-      const highlight = i === 0 ? 'style="font-weight:bold;color:green;"' : '';
-      return `<p ${highlight}>${p.name}: ${p.score}</p>`;
-    }).join("");
-    triggerConfetti();
+    const li = document.createElement("li");
+    li.textContent = "Round over!";
+    chainLog.appendChild(li);
+    updateScoreboard(data.scoreboard);
+    continueBtn.style.display = "inline-block";
+    exitBtn.style.display = "inline-block";
+    startBtn.style.display = "inline-block";
   }
 
   if (data.type === "chat") {
-    const msg = document.createElement("div");
-    msg.textContent = `${data.name}: ${data.text}`;
-    chatMessages.appendChild(msg);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    const div = document.createElement("div");
+    div.innerText = `${data.name}: ${data.text}`;
+    chatBox.appendChild(div);
   }
 };
 
-function updateScoreboard(scores) {
-  scoreboardDiv.innerHTML = "<h3>Live Scoreboard</h3>" +
-    scores.map((s) => `<p>${s.name}: ${s.score}</p>`).join("");
-}
-
-function updateGuessDropdown(scores) {
-  guessInput.innerHTML = scores
-    .filter(p => p.name !== playerName && p.score !== null)
-    .map(p => `<option value="${p.name}">${p.name}</option>`)
-    .join("");
+function updateScoreboard(players) {
+  scoreBoard.innerHTML = "";
+  const header = document.createElement("tr");
+  header.innerHTML = `<th>Player</th><th>Score</th>`;
+  scoreBoard.appendChild(header);
+  players.forEach(p => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${p.name}</td><td>${p.score}</td>`;
+    scoreBoard.appendChild(row);
+  });
 }
