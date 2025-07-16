@@ -1,212 +1,211 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Raja Rani Online Multiplayer Game</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
-      font-family: 'Poppins', sans-serif;
     }
 
     body {
       margin: 0;
-      padding: 0;
-      background: linear-gradient(to bottom right, #fff8f0, #ffe0e5);
+      font-family: 'Rubik', sans-serif;
+      background: linear-gradient(to bottom right, #ffecd2, #fcb69f);
       display: flex;
-      flex-direction: column;
-      align-items: center;
       justify-content: center;
+      align-items: flex-start;
       min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    h1 {
-      margin-top: 1rem;
-      font-size: 2.5rem;
-      color: #ff4081;
+      padding: 20px;
     }
 
     .container {
-      width: 90%;
-      max-width: 1200px;
-      background: white;
-      border-radius: 20px;
-      padding: 2rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      margin-bottom: 2rem;
+      width: 100%;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      animation: fadeIn 1s ease-in-out;
     }
 
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    input,
-    select,
+    h1, h2, h3 {
+      margin: 0 0 10px;
+      color: #333;
+    }
+
+    input, select, button, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
     button {
-      padding: 0.8rem;
-      border-radius: 10px;
-      border: none;
-      font-size: 1rem;
-      outline: none;
-    }
-
-    button {
-      background-color: #ff4081;
+      background-color: #ff8a00;
       color: white;
+      font-weight: bold;
       cursor: pointer;
-      transition: background 0.3s;
+      transition: background 0.3s ease;
     }
 
     button:hover {
-      background-color: #e91e63;
+      background-color: #e57700;
     }
 
-    #roleView {
-      background-color: #f3f3f3;
-      padding: 1rem;
-      margin: 1rem 0;
-      border-radius: 10px;
-      text-align: center;
-      font-size: 1.5rem;
-      font-weight: bold;
+    .hidden {
       display: none;
     }
 
-    .scoreboard-table,
-    .round-table {
+    .log, .chatlog {
+      background: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #ddd;
+      height: 150px;
+      overflow-y: auto;
+      font-size: 14px;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+
+    .scoreboard, .round-table {
+      background: #fff7d1;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .scoreboard h4, .round-table h4 {
+      margin-top: 0;
+    }
+
+    .score-table, .round-table table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1rem;
+      margin-top: 10px;
     }
 
-    .scoreboard-table th,
-    .scoreboard-table td,
-    .round-table th,
-    .round-table td {
-      border: 1px solid #ddd;
-      padding: 8px;
+    .score-table th, .score-table td,
+    .round-table th, .round-table td {
+      border: 1px solid #aaa;
+      padding: 6px 10px;
       text-align: center;
+      background-color: #fff;
     }
 
-    .guess-area {
-      margin-top: 2rem;
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
     }
 
-    .chat-area {
-      margin-top: 2rem;
-      border-top: 1px solid #ddd;
-      padding-top: 1rem;
+    .btn-orange { background: orange; color: #fff; }
+    .btn-red { background: crimson; color: #fff; }
+    .btn-green { background: seagreen; color: #fff; }
+
+    .btn-orange:hover { background: darkorange; }
+    .btn-red:hover { background: firebrick; }
+    .btn-green:hover { background: forestgreen; }
+
+    .view-role {
+      background-color: #2b90d9;
+      color: white;
+      padding: 5px 12px;
+      font-size: 14px;
+      margin-left: 10px;
+      border-radius: 5px;
+      cursor: pointer;
     }
 
-    .chat-log {
-      max-height: 200px;
-      overflow-y: auto;
-      background-color: #f9f9f9;
-      padding: 1rem;
-      border-radius: 10px;
-    }
-
-    .chat-log p {
-      margin: 0;
-      padding: 0.2rem;
-    }
-
-    .control-buttons button {
-      margin: 0.5rem;
-      padding: 0.7rem 1.2rem;
-      border-radius: 12px;
-      font-weight: bold;
-    }
-
-    .control-buttons .continue {
-      background-color: orange;
-    }
-
-    .control-buttons .exit {
-      background-color: red;
-    }
-
-    .control-buttons .start {
-      background-color: green;
-    }
-
-    @media (max-width: 600px) {
-      h1 {
-        font-size: 1.8rem;
-      }
+    .view-role:hover {
+      background-color: #217dbb;
     }
   </style>
 </head>
-
 <body>
-  <h1 class="animate__animated animate__bounce">Raja Rani Multiplayer Game 🎲</h1>
   <div class="container">
-    <div class="row" id="setupArea">
-      <input type="text" id="playerName" placeholder="Enter your name" />
+    <!-- Setup -->
+    <div id="setupCard">
+      <h1>🎭 Raja Rani Multiplayer Game</h1>
+      <input type="text" id="playerName" placeholder="Enter your name"/>
       <button onclick="createRoom()">Create Room</button>
-      <input type="text" id="roomCode" placeholder="Room Code" />
+      <input type="text" id="joinCode" placeholder="Join with code"/>
       <button onclick="joinRoom()">Join Room</button>
     </div>
 
-    <div class="row" id="startArea" style="display: none;">
-      <p id="roomInfo"></p>
-      <button id="startGameBtn" onclick="startGame()">Start Game</button>
+    <!-- Waiting -->
+    <div id="waitingCard" class="hidden">
+      <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
+      <h3>Players Joined:</h3>
+      <ul id="playerList"></ul>
+      <button onclick="startGame()">Start Game</button>
     </div>
 
-    <div id="roleView"></div>
-    <button onclick="viewRole()">View My Role</button>
+    <!-- Role Display -->
+    <div id="roleCard" class="hidden">
+      <h2>Welcome <span id="nameDisplay"></span></h2>
+      <p>Your Role (Round <span id="roundNum1"></span>): <strong id="yourRole"></strong>
+        <button class="view-role" onclick="revealRole()">View</button>
+      </p>
+    </div>
 
-    <div id="guessArea" class="guess-area" style="display: none;">
-      <h2>Guess the player</h2>
-      <select id="guessDropdown"></select>
+    <!-- Game Area -->
+    <div id="gameCard" class="hidden">
+      <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
+      <p>Guess who is the <strong id="guessRole"></strong></p>
+      <select id="guessInput"></select>
       <button onclick="makeGuess()">Submit Guess</button>
+
+      <div class="log" id="logBox"></div>
+
+      <div class="scoreboard">
+        <h4>Scoreboard</h4>
+        <table class="score-table" id="scoreboardTable"></table>
+      </div>
+
+      <div class="chat-section">
+        <h3>💬 Chat</h3>
+        <div class="chatlog" id="chatLog"></div>
+        <input id="chatInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChat()" />
+        <button onclick="sendChat()">Send</button>
+      </div>
     </div>
 
-    <div id="chainLogArea" style="display: none;">
-      <h3>Game Progress</h3>
-      <div id="chainLog"></div>
-    </div>
+    <!-- Game Over -->
+    <div id="endCard" class="hidden">
+      <h2>✅ Round <span id="finalRound"></span> Completed</h2>
+      <div class="log" id="finalLog"></div>
 
-    <div id="scoreboardArea">
-      <h3>Scoreboard</h3>
-      <table class="scoreboard-table" id="scoreboardTable">
-        <thead>
-          <tr id="scoreHeader">
-            <th>Player</th>
-          </tr>
-        </thead>
-        <tbody id="scoreBody"></tbody>
-      </table>
-    </div>
+      <div class="scoreboard">
+        <h4>Total Score</h4>
+        <table class="score-table" id="finalScores"></table>
+      </div>
 
-    <div id="roundTableArea" style="display: none;">
-      <h3>Round Summary</h3>
-      <table class="round-table" id="roundTable"></table>
-    </div>
+      <div class="round-table" id="roundTableBox">
+        <h4>🧾 Round Matrix</h4>
+        <table class="round-table" id="roundMatrixTable"></table>
+      </div>
 
-    <div class="control-buttons" id="postRoundControls" style="display: none;">
-      <button class="continue" onclick="sendContinue()">Continue</button>
-      <button class="exit" onclick="sendExit()">Exit</button>
-      <button class="start" onclick="startNextRound()">Start</button>
-    </div>
-
-    <div class="chat-area">
-      <h3>Live Chat 💬</h3>
-      <div class="chat-log" id="chatLog"></div>
-      <input type="text" id="chatInput" placeholder="Type your message" />
-      <button onclick="sendChat()">Send</button>
+      <div class="btn-group">
+        <button class="btn-orange" id="nextRoundBtn" onclick="startNextRound()">Continue</button>
+        <button class="btn-red" onclick="exitGame()">Exit</button>
+        <button class="btn-green" onclick="startGame()">Start</button>
+      </div>
     </div>
   </div>
 
+  <!-- JavaScript Client Logic -->
   <script src="client.js"></script>
 </body>
-
 </html>
