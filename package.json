@@ -1,7 +1,7 @@
 {
   "name": "raja-rani-online",
   "version": "1.0.0",
-  "description": "Multiplayer Raja Rani Game with chat, rounds, animations and scoreboard",
+  "description": "Multiplayer Raja Rani Game with WebSocket, scoring, and role logic",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
