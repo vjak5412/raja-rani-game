@@ -1,9 +1,14 @@
-// server.js — Raja Rani Multiplayer Game WebSocket Server (Fully Updated with Fixes)
+// server.js — Render-Compatible Raja Rani Multiplayer Game WebSocket Server
+
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
+const http = require("http");
 
-const wss = new WebSocket.Server({ port: 8080 });
-console.log("\u2705 WebSocket server running on port 8080");
+const PORT = process.env.PORT || 8080;
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
+
+console.log(`✅ WebSocket server running on port ${PORT}`);
 
 const rooms = {};
 
@@ -55,12 +60,12 @@ wss.on("connection", (ws) => {
         rooms[roomCode] = {
           players: [{ name: data.name, ws, role: null, id: data.id, score: 0, prevTarget: null }],
           round: 1,
-          stage: "waiting",
+          scoreboard: {},
           chainIndex: 0,
           currentTurn: 0,
           chainLog: [],
-          chatLog: [],
-          roundTable: []
+          stage: "waiting",
+          chatLog: []
         };
         ws.send(JSON.stringify({ type: "room_created", roomCode }));
       }
@@ -116,7 +121,9 @@ wss.on("connection", (ws) => {
         const guessed = players.find((p) => p.name === data.guess);
         const nextRole = roleMap[players.length][room.chainIndex + 1];
 
-        if (!guessed || guesser.prevTarget === guessed.name) return;
+        if (!guessed || guesser.prevTarget === guessed.name) {
+          return;
+        }
 
         let result = "";
 
@@ -126,7 +133,7 @@ wss.on("connection", (ws) => {
           room.chainIndex++;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
         } else {
-          result = `${guesser.name} guessed ${guessed.name} as ${nextRole} \u274C`;
+          result = `${guesser.name} guessed ${guessed.name} as ${nextRole} ❌`;
           [guesser.role, guessed.role] = [guessed.role, guesser.role];
           guesser.prevTarget = guessed.name;
           room.currentTurn = players.findIndex((p) => p.name === guessed.name);
@@ -135,14 +142,13 @@ wss.on("connection", (ws) => {
         room.chainLog.push(result);
 
         if (room.chainIndex >= roleMap[players.length].length - 1) {
-          room.roundTable.push(buildRoundTable(players, room.round));
           broadcast(data.roomCode, {
             type: "game_over",
             log: room.chainLog,
             scoreboard: players.map((p) => ({ name: p.name, score: p.score })),
             round: room.round,
             canStartNext: true,
-            roundTable: room.roundTable
+            roundTable: buildRoundTable(players, room.round)
           });
         } else {
           broadcast(data.roomCode, {
@@ -178,7 +184,6 @@ wss.on("connection", (ws) => {
 
         room.stage = "playing";
         room.currentTurn = players.findIndex((p) => p.role === "Raja");
-
         broadcast(data.roomCode, {
           type: "start_chain",
           nextRole: roleMap[players.length][1],
@@ -215,9 +220,13 @@ wss.on("connection", (ws) => {
 });
 
 function buildRoundTable(players, round) {
-  const row = { round };
+  const obj = { round };
   players.forEach((p) => {
-    row[p.name] = rolePoints[p.role] || 0;
+    obj[p.name] = rolePoints[p.role] || 0;
   });
-  return row;
+  return obj;
 }
+
+server.listen(PORT, () => {
+  console.log(`✅ Server is live on port ${PORT}`);
+});
