@@ -1,274 +1,173 @@
-// server.js — Raja Rani Multiplayer Game Backend (Full Final Version)
-const WebSocket = require("ws");
-const { v4: uuidv4 } = require("uuid");
+// client.js — Raja Rani Game (Fully Merged & Functional)
+const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
+let playerName = "";
+let playerId = crypto.randomUUID();
+let roomCode = "";
+let isAdmin = false;
+let currentRole = "";
+let scoreboardData = [];
 
-const wss = new WebSocket.Server({ port: 8080 });
-console.log("✅ WebSocket Server running at ws://localhost:8080");
+const setupCard = document.getElementById("setupCard");
+const waitingCard = document.getElementById("waitingCard");
+const roleCard = document.getElementById("roleCard");
+const gameCard = document.getElementById("gameCard");
+const endCard = document.getElementById("endCard");
 
-const rooms = {};
+function showOnly(card) {
+  [setupCard, waitingCard, roleCard, gameCard, endCard].forEach(c => c.classList.add("hidden"));
+  card.classList.remove("hidden");
+}
 
-const roleMap = {
-  3: ["Raja", "Rani", "Mantiri"],
-  4: ["Raja", "Rani", "Mantiri", "Thirudan"],
-  5: ["Raja", "Rani", "Mantiri", "Police", "Thirudan"],
-  6: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Thirudan"],
-  7: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Thirudan"],
-  8: ["Raja", "Rani", "Mantiri", "Police", "Sippai", "Sevagan", "Nai", "Thirudan"]
-};
+function createRoom() {
+  playerName = document.getElementById("playerName").value.trim();
+  if (!playerName) return alert("Enter your name");
+  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
+}
 
-const rolePoints = {
-  Raja: 5000,
-  Rani: 3000,
-  Mantiri: 1500,
-  Police: 1000,
-  Sippai: 500,
-  Sevagan: 300,
-  Nai: 100,
-  Thirudan: 0
-};
+function joinRoom() {
+  playerName = document.getElementById("playerName").value.trim();
+  roomCode = document.getElementById("joinCode").value.trim();
+  if (!playerName || !roomCode) return alert("Enter your name and room code");
+  socket.send(JSON.stringify({ type: "join_room", name: playerName, id: playerId, roomCode }));
+}
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+function startGame() {
+  socket.send(JSON.stringify({ type: "start_game", roomCode, id: playerId }));
+}
+
+function startNextRound() {
+  socket.send(JSON.stringify({ type: "start_next_round", roomCode, id: playerId }));
+}
+
+function makeGuess() {
+  const guess = document.getElementById("guessInput").value;
+  if (!guess) return;
+  socket.send(JSON.stringify({ type: "guess", guess, id: playerId, roomCode }));
+}
+
+function sendChat() {
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+  socket.send(JSON.stringify({ type: "chat", text, name: playerName, roomCode }));
+  input.value = "";
+}
+
+function flipCard() {
+  const card = document.getElementById("roleFlipCard");
+  card.classList.add("flipped");
+  setTimeout(() => card.classList.remove("flipped"), 3000);
+}
+
+function updateScoreboard(data) {
+  scoreboardData.push(data);
+  const table = document.createElement("table");
+  const headers = ["Rank", "Name", ...scoreboardData.map((_, i) => `Round ${i+1}`), "Total"];
+  const tr = document.createElement("tr");
+  headers.forEach(h => { const th = document.createElement("th"); th.innerText = h; tr.appendChild(th); });
+  table.appendChild(tr);
+
+  const totalScores = {};
+  scoreboardData.forEach(round => {
+    round.forEach(p => {
+      totalScores[p.name] = (totalScores[p.name] || 0) + p.score;
+    });
+  });
+  const ranked = Object.entries(totalScores).sort((a,b) => b[1] - a[1]);
+  ranked.forEach(([name, total], i) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${i+1}</td><td>${name}</td>`;
+    scoreboardData.forEach(round => {
+      const r = round.find(p => p.name === name);
+      row.innerHTML += `<td>${r ? r.score : '-'}</td>`;
+    });
+    row.innerHTML += `<td>${total}</td>`;
+    table.appendChild(row);
+  });
+
+  const box = document.getElementById("scoreboardBox");
+  box.innerHTML = "";
+  box.appendChild(table);
+
+  const final = document.getElementById("finalScores");
+  if (final) {
+    final.innerHTML = "";
+    final.appendChild(table.cloneNode(true));
   }
-  return arr;
 }
 
-function broadcast(roomCode, message) {
-  if (!rooms[roomCode]) return;
-  rooms[roomCode].players.forEach(p => {
-    if (p.ws.readyState === WebSocket.OPEN) {
-      p.ws.send(JSON.stringify(message));
-    }
-  });
-}
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
 
-function getSortedScoreboard(players) {
-  return players
-    .map(p => ({
-      name: p.name,
-      total: p.totalScore || 0,
-      rounds: p.rounds || []
-    }))
-    .sort((a, b) => b.total - a.total);
-}
+  if (data.type === "room_created") {
+    roomCode = data.roomCode;
+    isAdmin = true;
+    document.getElementById("roomCodeDisplay").innerText = roomCode;
+    document.getElementById("startGameBtn").style.display = "block";
+    showOnly(waitingCard);
+  }
 
-wss.on("connection", (ws) => {
-  ws.on("message", (msg) => {
-    try {
-      const data = JSON.parse(msg);
+  if (data.type === "player_joined") {
+    const list = document.getElementById("playerList");
+    list.innerHTML = "";
+    data.players.forEach((name, i) => {
+      const li = document.createElement("li");
+      li.innerText = name;
+      if (i === 0) li.innerHTML += ' <span class="admin-badge">Admin</span>';
+      list.appendChild(li);
+    });
+    document.getElementById("waitInfo").innerText = "You have joined the room.";
+    showOnly(waitingCard);
+  }
 
-      // 🆕 Create Room
-      if (data.type === "create_room") {
-        const roomCode = uuidv4().slice(0, 6);
-        rooms[roomCode] = {
-          adminId: data.id,
-          players: [{
-            name: data.name,
-            id: data.id,
-            ws,
-            role: null,
-            totalScore: 0,
-            rounds: []
-          }],
-          stage: "waiting",
-          currentTurn: 0,
-          chainIndex: 0,
-          chainLog: [],
-          round: 1,
-          maxRounds: 20,
-          recentSwap: {},
-          lockedPlayers: new Set(),
-          chatLog: []
-        };
-        ws.send(JSON.stringify({ type: "room_created", roomCode }));
+  if (data.type === "your_role") {
+    currentRole = data.role;
+    document.getElementById("yourRole").innerText = currentRole;
+    document.getElementById("nameDisplay").innerText = data.name;
+    document.getElementById("roundNum1").innerText = data.round;
+    showOnly(roleCard);
+  }
+
+  if (data.type === "start_chain") {
+    document.getElementById("guessInput").innerHTML = "";
+    data.scoreboard && updateScoreboard(data.scoreboard);
+    document.getElementById("roundNum2").innerText = data.round;
+    document.getElementById("turnPlayer").innerText = data.turnPlayer;
+    document.getElementById("guessRole").innerText = data.nextRole;
+    showOnly(gameCard);
+  }
+
+  if (data.type === "chain_update") {
+    const logBox = document.getElementById("logBox");
+    logBox.innerHTML = data.log.map(l => `<p>${l}</p>`).join("");
+    const select = document.getElementById("guessInput");
+    select.innerHTML = "";
+    data.scoreboard && updateScoreboard(data.scoreboard);
+    const locked = data.locked || [];
+    data.scoreboard[0].forEach(p => {
+      if (p.name !== playerName && !locked.includes(p.name)) {
+        const opt = document.createElement("option");
+        opt.value = opt.innerText = p.name;
+        select.appendChild(opt);
       }
+    });
+    document.getElementById("turnPlayer").innerText = data.turnPlayer;
+    document.getElementById("guessRole").innerText = data.nextRole;
+  }
 
-      // 🔗 Join Room
-      if (data.type === "join_room") {
-        const room = rooms[data.roomCode];
-        if (!room) return ws.send(JSON.stringify({ type: "error", message: "Room not found" }));
-        room.players.push({
-          name: data.name,
-          id: data.id,
-          ws,
-          role: null,
-          totalScore: 0,
-          rounds: []
-        });
+  if (data.type === "game_over") {
+    document.getElementById("finalRound").innerText = data.round;
+    document.getElementById("finalLog").innerHTML = data.log.map(l => `<p>${l}</p>`).join("");
+    data.scoreboard && updateScoreboard(data.scoreboard);
+    showOnly(endCard);
+  }
 
-        broadcast(data.roomCode, {
-          type: "player_joined",
-          players: room.players.map(p => ({
-            name: p.name,
-            isAdmin: p.id === room.adminId
-          }))
-        });
-      }
-
-      // ▶️ Start Game (Admin only)
-      if (data.type === "start_game") {
-        const room = rooms[data.roomCode];
-        if (!room || room.adminId !== data.id) return;
-
-        const players = room.players;
-        const roles = shuffle([...roleMap[players.length]]);
-        players.forEach((p, i) => {
-          p.role = roles[i];
-        });
-
-        room.stage = "playing";
-        room.chainIndex = 0;
-        room.chainLog = [];
-        room.recentSwap = {};
-        room.lockedPlayers.clear();
-
-        const rajaIndex = players.findIndex(p => p.role === "Raja");
-        room.currentTurn = rajaIndex;
-
-        players.forEach(p => {
-          p.ws.send(JSON.stringify({
-            type: "your_role",
-            role: p.role,
-            name: p.name,
-            round: room.round
-          }));
-        });
-
-        broadcast(data.roomCode, {
-          type: "start_chain",
-          turnPlayer: players[rajaIndex].name,
-          nextRole: roleMap[players.length][1],
-          scoreboard: getSortedScoreboard(players),
-          round: room.round,
-          locked: []
-        });
-      }
-
-      // 🎯 Make a Guess
-      if (data.type === "guess") {
-        const room = rooms[data.roomCode];
-        if (!room) return;
-        const players = room.players;
-
-        const guesser = players.find(p => p.id === data.id);
-        const guessed = players.find(p => p.name === data.guess);
-        const currentRole = roleMap[players.length][room.chainIndex + 1];
-
-        if (!guessed || !guesser || room.lockedPlayers.has(guesser.name) || room.lockedPlayers.has(guessed.name)) return;
-        if (room.recentSwap[guesser.name] === guessed.name) return;
-
-        let logLine = "";
-        if (guessed.role === currentRole) {
-          // Correct
-          logLine = `${guesser.name} ✅ guessed correctly: ${guessed.name} is ${currentRole}`;
-          guesser.totalScore += rolePoints[currentRole];
-          room.lockedPlayers.add(guesser.name);
-          room.lockedPlayers.add(guessed.name);
-          room.chainIndex++;
-          room.currentTurn = players.findIndex(p => p.name === guessed.name);
-        } else {
-          // Wrong — only swap roles
-          logLine = `${guesser.name} ❌ guessed wrong: ${guessed.name} is not ${currentRole}. Swapped roles.`;
-          [guesser.role, guessed.role] = [guessed.role, guesser.role];
-          room.recentSwap[guessed.name] = guesser.name;
-          room.currentTurn = players.findIndex(p => p.name === guessed.name);
-        }
-
-        room.chainLog.push(logLine);
-
-        // 🛑 Round end
-        if (room.chainIndex >= roleMap[players.length].length - 1) {
-          players.forEach(p => {
-            const extra = rolePoints[p.role] || 0;
-            p.totalScore += extra;
-            p.rounds = p.rounds || [];
-            p.rounds.push(extra);
-          });
-
-          broadcast(data.roomCode, {
-            type: "game_over",
-            log: room.chainLog,
-            scoreboard: getSortedScoreboard(players),
-            round: room.round,
-            canStartNext: room.round < room.maxRounds
-          });
-        } else {
-          broadcast(data.roomCode, {
-            type: "chain_update",
-            log: [...room.chainLog],
-            nextRole: roleMap[players.length][room.chainIndex + 1],
-            turnPlayer: players[room.currentTurn].name,
-            scoreboard: getSortedScoreboard(players),
-            locked: [...room.lockedPlayers]
-          });
-        }
-      }
-
-      // ⏭️ Start Next Round
-      if (data.type === "start_next_round") {
-        const room = rooms[data.roomCode];
-        if (!room || room.adminId !== data.id || room.round >= room.maxRounds) return;
-
-        room.round++;
-        room.chainIndex = 0;
-        room.stage = "waiting";
-        room.chainLog = [];
-        room.recentSwap = {};
-        room.lockedPlayers.clear();
-
-        const roles = shuffle([...roleMap[room.players.length]]);
-        room.players.forEach((p, i) => {
-          p.role = roles[i];
-        });
-
-        const rajaIndex = room.players.findIndex(p => p.role === "Raja");
-        room.currentTurn = rajaIndex;
-        room.stage = "playing";
-
-        room.players.forEach(p => {
-          p.ws.send(JSON.stringify({
-            type: "your_role",
-            role: p.role,
-            name: p.name,
-            round: room.round
-          }));
-        });
-
-        broadcast(data.roomCode, {
-          type: "start_chain",
-          turnPlayer: room.players[rajaIndex].name,
-          nextRole: roleMap[room.players.length][1],
-          scoreboard: getSortedScoreboard(room.players),
-          round: room.round,
-          locked: []
-        });
-      }
-
-      // 💬 Chat
-      if (data.type === "chat") {
-        const room = rooms[data.roomCode];
-        if (!room) return;
-        const chatMsg = {
-          type: "chat",
-          name: data.name,
-          text: data.text,
-          time: new Date().toLocaleTimeString()
-        };
-        room.chatLog.push(chatMsg);
-        broadcast(data.roomCode, chatMsg);
-      }
-    } catch (err) {
-      console.error("❌ Error:", err.message);
-    }
-  });
-
-  ws.on("close", () => {
-    for (const code in rooms) {
-      const room = rooms[code];
-      room.players = room.players.filter(p => p.ws !== ws);
-      if (room.players.length === 0) delete rooms[code];
-    }
-  });
-});
+  if (data.type === "chat") {
+    const chat = document.getElementById("chatMessages");
+    const line = document.createElement("div");
+    const time = new Date(data.time).toLocaleTimeString();
+    line.innerHTML = `<strong>${data.name}</strong> [${time}]: ${data.text}`;
+    chat.appendChild(line);
+    chat.scrollTop = chat.scrollHeight;
+  }
+};
