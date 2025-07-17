@@ -1,4 +1,4 @@
-// server.js — Fully Updated Raja Rani Multiplayer WebSocket Server
+// server.js — Final Merged & Updated for Raja Rani Game
 const WebSocket = require("ws");
 const { v4: uuidv4 } = require("uuid");
 
@@ -35,13 +35,23 @@ function shuffle(arr) {
   return arr;
 }
 
-function broadcast(roomCode, message) {
-  if (!rooms[roomCode]) return;
-  rooms[roomCode].players.forEach(p => {
+function broadcast(roomCode, msg) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  room.players.forEach(p => {
     if (p.ws.readyState === WebSocket.OPEN) {
-      p.ws.send(JSON.stringify(message));
+      p.ws.send(JSON.stringify(msg));
     }
   });
+}
+
+function getSortedScoreboard(players) {
+  return players.slice().sort((a, b) => b.score - a.score).map((p, i) => ({
+    rank: i + 1,
+    name: p.name,
+    total: p.score,
+    rounds: p.roundScores || []
+  }));
 }
 
 wss.on("connection", (ws) => {
@@ -49,53 +59,46 @@ wss.on("connection", (ws) => {
     try {
       const data = JSON.parse(msg);
 
-      // Create Room
       if (data.type === "create_room") {
         const roomCode = uuidv4().slice(0, 6);
         rooms[roomCode] = {
           adminId: data.id,
-          players: [{ name: data.name, ws, role: null, id: data.id, score: 0 }],
-          stage: "waiting",
-          currentTurn: 0,
-          chainIndex: 0,
-          chainLog: [],
-          chatLog: [],
+          players: [{ name: data.name, ws, role: null, id: data.id, score: 0, roundScores: [] }],
           round: 1,
-          maxRounds: 20,
+          maxRounds: 10,
+          chainIndex: 0,
           recentSwap: {},
-          lockedPlayers: new Set()
+          lockedPlayers: new Set(),
+          stage: "waiting",
+          chatLog: []
         };
         ws.send(JSON.stringify({ type: "room_created", roomCode }));
       }
 
-      // Join Room
       if (data.type === "join_room") {
         const room = rooms[data.roomCode];
         if (!room) return ws.send(JSON.stringify({ type: "error", message: "Room not found" }));
-        room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0 });
+        if (room.players.find(p => p.name === data.name)) {
+          return ws.send(JSON.stringify({ type: "error", message: "Name already taken" }));
+        }
+        room.players.push({ name: data.name, ws, role: null, id: data.id, score: 0, roundScores: [] });
         broadcast(data.roomCode, {
           type: "player_joined",
-          players: room.players.map(p => p.name)
+          players: room.players.map(p => ({ name: p.name, isAdmin: room.adminId === p.id }))
         });
       }
 
-      // Start Game
       if (data.type === "start_game") {
         const room = rooms[data.roomCode];
         if (!room || room.adminId !== data.id) return;
-        const players = room.players;
-        if (players.length < 3 || players.length > 8) return;
 
-        const roles = shuffle([...roleMap[players.length]]);
-        players.forEach((p, i) => p.role = roles[i]);
-
+        const roles = shuffle([...roleMap[room.players.length]]);
+        room.players.forEach((p, i) => p.role = roles[i]);
         room.chainIndex = 0;
-        room.stage = "playing";
-        room.chainLog = [];
         room.recentSwap = {};
         room.lockedPlayers.clear();
 
-        players.forEach(p => {
+        room.players.forEach(p => {
           p.ws.send(JSON.stringify({
             type: "your_role",
             role: p.role,
@@ -104,23 +107,21 @@ wss.on("connection", (ws) => {
           }));
         });
 
-        const rajaIndex = players.findIndex(p => p.role === "Raja");
+        const rajaIndex = room.players.findIndex(p => p.role === "Raja");
         room.currentTurn = rajaIndex;
-
         broadcast(data.roomCode, {
           type: "start_chain",
-          nextRole: roleMap[players.length][1],
-          turnPlayer: players[rajaIndex].name,
+          nextRole: roleMap[room.players.length][1],
+          turnPlayer: room.players[rajaIndex].name,
           round: room.round,
-          scoreboard: getSortedScoreboard(players)
+          scoreboard: getSortedScoreboard(room.players),
+          locked: [...room.lockedPlayers]
         });
       }
 
-      // Make a Guess
       if (data.type === "guess") {
         const room = rooms[data.roomCode];
         if (!room) return;
-
         const players = room.players;
         const guesser = players.find(p => p.id === data.id);
         const guessed = players.find(p => p.name === data.guess);
@@ -131,33 +132,32 @@ wss.on("connection", (ws) => {
         if (room.lockedPlayers.has(guesser.name) || room.lockedPlayers.has(guessed.name)) return;
         if (room.recentSwap[guesser.name] === guessed.name) return;
 
-        let logLine = '';
-
+        let log = "";
         if (guessed.role === currentRole) {
           guesser.score += rolePoints[currentRole];
-          logLine = `${guesser.name} guessed correctly! ${guessed.name} is ${currentRole}.`;
+          guesser.roundScores[room.round - 1] = (guesser.roundScores[room.round - 1] || 0) + rolePoints[currentRole];
           room.lockedPlayers.add(guesser.name);
           room.lockedPlayers.add(guessed.name);
+          log = `${guesser.name} guessed correctly! ${guessed.name} is ${currentRole}.`;
           room.chainIndex++;
           room.currentTurn = players.findIndex(p => p.name === guessed.name);
         } else {
-          logLine = `${guesser.name} guessed wrong. ${guessed.name} is not ${currentRole}. Roles swapped.`;
           [guesser.role, guessed.role] = [guessed.role, guesser.role];
           room.recentSwap[guessed.name] = guesser.name;
+          log = `${guesser.name} guessed wrong. ${guessed.name} is not ${currentRole}. They swap roles.`;
           room.currentTurn = players.findIndex(p => p.name === guessed.name);
         }
 
-        room.chainLog.push(logLine);
-
-        if (room.chainIndex >= roleMap[players.length].length - 1) {
+        const allRolesFound = room.chainIndex >= roleMap[players.length].length - 1;
+        if (allRolesFound) {
           players.forEach(p => {
-            const bonus = rolePoints[p.role] || 0;
-            p.score += bonus;
+            const score = rolePoints[p.role];
+            p.score += score;
+            p.roundScores[room.round - 1] = (p.roundScores[room.round - 1] || 0) + score;
           });
-
           broadcast(data.roomCode, {
             type: "game_over",
-            log: room.chainLog,
+            log,
             scoreboard: getSortedScoreboard(players),
             round: room.round,
             canStartNext: room.round < room.maxRounds
@@ -165,7 +165,7 @@ wss.on("connection", (ws) => {
         } else {
           broadcast(data.roomCode, {
             type: "chain_update",
-            log: [...room.chainLog],
+            log,
             nextRole: roleMap[players.length][room.chainIndex + 1],
             turnPlayer: players[room.currentTurn].name,
             scoreboard: getSortedScoreboard(players),
@@ -174,14 +174,11 @@ wss.on("connection", (ws) => {
         }
       }
 
-      // Start Next Round
       if (data.type === "start_next_round") {
         const room = rooms[data.roomCode];
         if (!room || room.adminId !== data.id || room.round >= room.maxRounds) return;
         room.round++;
         room.chainIndex = 0;
-        room.stage = "waiting";
-        room.chainLog = [];
         room.recentSwap = {};
         room.lockedPlayers.clear();
 
@@ -199,17 +196,16 @@ wss.on("connection", (ws) => {
           }));
         });
 
-        room.stage = "playing";
         broadcast(data.roomCode, {
           type: "start_chain",
           nextRole: roleMap[room.players.length][1],
           turnPlayer: room.players[rajaIndex].name,
           round: room.round,
-          scoreboard: getSortedScoreboard(room.players)
+          scoreboard: getSortedScoreboard(room.players),
+          locked: [...room.lockedPlayers]
         });
       }
 
-      // Chat
       if (data.type === "chat") {
         const room = rooms[data.roomCode];
         if (!room) return;
@@ -222,8 +218,9 @@ wss.on("connection", (ws) => {
         room.chatLog.push(chatMsg);
         broadcast(data.roomCode, chatMsg);
       }
+
     } catch (err) {
-      console.error("Error parsing message:", msg);
+      console.error("Error parsing message:", err);
     }
   });
 
@@ -234,14 +231,3 @@ wss.on("connection", (ws) => {
     }
   });
 });
-
-function getSortedScoreboard(players) {
-  return players
-    .slice()
-    .sort((a, b) => b.score - a.score)
-    .map((p, i) => ({
-      rank: i + 1,
-      name: p.name,
-      score: p.score
-    }));
-}
