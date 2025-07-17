@@ -187,5 +187,4 @@ function flipCard() {
   setTimeout(() => {
     card.classList.remove('flipped');
   }, 3000);
-    }
-    
+}
