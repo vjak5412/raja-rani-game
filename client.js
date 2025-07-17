@@ -1,30 +1,45 @@
-// client.js - Raja Rani Game
 const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
 
 let playerName = "";
 let playerId = crypto.randomUUID();
 let roomCode = "";
 let isAdmin = false;
-let currentRole = "";
-let allPlayers = [];
+let currentGuessOptions = [];
 
-function $(id) {
-  return document.getElementById(id);
-}
+const setupCard = document.getElementById("setupCard");
+const waitingCard = document.getElementById("waitingCard");
+const roleCard = document.getElementById("roleCard");
+const gameCard = document.getElementById("gameCard");
+const endCard = document.getElementById("endCard");
+
+const nameDisplay = document.getElementById("nameDisplay");
+const roomCodeDisplay = document.getElementById("roomCodeDisplay");
+const playerList = document.getElementById("playerList");
+const yourRole = document.getElementById("yourRole");
+const roundNum1 = document.getElementById("roundNum1");
+const roundNum2 = document.getElementById("roundNum2");
+const finalRound = document.getElementById("finalRound");
+const turnPlayer = document.getElementById("turnPlayer");
+const guessRole = document.getElementById("guessRole");
+const guessInput = document.getElementById("guessInput");
+const scoreboardBox = document.getElementById("scoreboardBox");
+const logBox = document.getElementById("logBox");
+const finalLog = document.getElementById("finalLog");
+const finalScores = document.getElementById("finalScores");
+
+const flipCard = document.getElementById("roleFlipCard");
 
 function createRoom() {
-  playerName = $("playerName").value.trim();
-  if (!playerName) return alert("Enter a name");
-  isAdmin = true;
+  playerName = document.getElementById("playerName").value;
   socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
+  isAdmin = true;
 }
 
 function joinRoom() {
-  playerName = $("playerName").value.trim();
-  const code = $("joinCode").value.trim();
-  if (!playerName || !code) return alert("Enter name and code");
+  playerName = document.getElementById("playerName").value;
+  const code = document.getElementById("joinCode").value;
   roomCode = code;
-  socket.send(JSON.stringify({ type: "join_room", name: playerName, roomCode, id: playerId }));
+  socket.send(JSON.stringify({ type: "join_room", name: playerName, roomCode: code, id: playerId }));
 }
 
 function startGame() {
@@ -33,105 +48,121 @@ function startGame() {
 }
 
 function startNextRound() {
+  if (!isAdmin) return;
   socket.send(JSON.stringify({ type: "start_next_round", roomCode, id: playerId }));
 }
 
 function makeGuess() {
-  const guess = $("guessInput").value;
-  if (!guess) return alert("Choose a player");
-  socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
+  const selected = guessInput.value;
+  if (!selected) return;
+  socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess: selected }));
+  guessInput.disabled = true;
 }
 
-function flipCard() {
-  const card = document.getElementById("roleFlipCardInner");
-  card.classList.add("flipped");
-  setTimeout(() => card.classList.remove("flipped"), 3000);
+function renderScoreboard(scoreboard) {
+  let html = `<table><tr><th>Rank</th><th>Name</th><th>Score</th></tr>`;
+  scoreboard.forEach((p, i) => {
+    html += `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.score}</td></tr>`;
+  });
+  html += `</table>`;
+  scoreboardBox.innerHTML = html;
+  finalScores.innerHTML = html;
 }
 
-function hideRoleCard() {
-  $("roleFlipCardInner").classList.remove("flipped");
-}
-
-function updateScoreboard(scoreboard) {
-  const div = $("scoreboardBox");
-  div.innerHTML = "<table><tr><th>Rank</th><th>Name</th><th>Score</th></tr>" +
-    scoreboard.map((p, i) => `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.score}</td></tr>`).join("") +
-    "</table>";
-}
-
-function updateDropdown(locked) {
-  const select = $("guessInput");
-  select.innerHTML = "<option value='' disabled selected>Select player</option>";
-  allPlayers.forEach(p => {
-    if (p !== playerName && !locked.includes(p)) {
-      const opt = document.createElement("option");
-      opt.value = p;
-      opt.textContent = p;
-      select.appendChild(opt);
-    }
+function renderPlayerList(players) {
+  playerList.innerHTML = "";
+  players.forEach(p => {
+    const li = document.createElement("li");
+    li.textContent = p === playerName ? `${p} (You)` : p;
+    if (isAdmin && p === playerName) li.innerHTML += ' <span style="color: green;">[Admin]</span>';
+    playerList.appendChild(li);
   });
 }
 
-socket.addEventListener("message", (e) => {
-  const data = JSON.parse(e.data);
+function showCard(card) {
+  [setupCard, waitingCard, roleCard, gameCard, endCard].forEach(c => c.classList.add("hidden"));
+  card.classList.remove("hidden");
+}
+
+function flipCardShow() {
+  flipCard.classList.add("flipped");
+  setTimeout(() => {
+    flipCard.classList.remove("flipped");
+  }, 3000);
+}
+
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
 
   if (data.type === "room_created") {
     roomCode = data.roomCode;
-    $("setupCard").classList.add("hidden");
-    $("waitingCard").classList.remove("hidden");
-    $("roomCodeDisplay").textContent = roomCode;
+    roomCodeDisplay.textContent = roomCode;
+    showCard(waitingCard);
   }
 
   if (data.type === "player_joined") {
-    allPlayers = data.players;
-    const list = $("playerList");
-    list.innerHTML = "";
-    data.players.forEach(name => {
-      const li = document.createElement("li");
-      li.textContent = name;
-      if (isAdmin && name === playerName) li.innerHTML += " <strong>(Admin)</strong>";
-      list.appendChild(li);
-    });
-    if (!$("setupCard").classList.contains("hidden")) {
-      $("setupCard").classList.add("hidden");
-      $("waitingCard").classList.remove("hidden");
-    }
+    renderPlayerList(data.players);
+    showCard(waitingCard);
   }
 
   if (data.type === "your_role") {
-    $("waitingCard").classList.add("hidden");
-    $("roleCard").classList.remove("hidden");
-    $("yourRole").textContent = data.role;
-    $("nameDisplay").textContent = data.name;
-    $("roundNum1").textContent = data.round;
-    currentRole = data.role;
+    yourRole.textContent = data.role;
+    nameDisplay.textContent = data.name;
+    roundNum1.textContent = data.round;
+    showCard(roleCard);
   }
 
   if (data.type === "start_chain") {
-    $("roleCard").classList.add("hidden");
-    $("gameCard").classList.remove("hidden");
-    $("roundNum2").textContent = data.round;
-    $("guessRole").textContent = data.nextRole;
-    $("turnPlayer").textContent = data.turnPlayer;
-    updateScoreboard(data.scoreboard);
+    roundNum2.textContent = data.round;
+    turnPlayer.textContent = data.turnPlayer;
+    guessRole.textContent = data.nextRole;
+    renderScoreboard(data.scoreboard);
+    guessInput.innerHTML = "";
+    data.scoreboard.forEach(p => {
+      if (p.name !== playerName && !data.locked?.includes(p.name)) {
+        const option = document.createElement("option");
+        option.value = p.name;
+        option.textContent = p.name;
+        guessInput.appendChild(option);
+      }
+    });
+    guessInput.disabled = false;
+    showCard(gameCard);
   }
 
   if (data.type === "chain_update") {
-    $("logBox").innerHTML = data.log.map(line => `<p>${line}</p>`).join("");
-    $("guessRole").textContent = data.nextRole;
-    $("turnPlayer").textContent = data.turnPlayer;
-    updateScoreboard(data.scoreboard);
-    updateDropdown(data.locked);
+    logBox.innerHTML = data.log.map(l => `<p>${l}</p>`).join("");
+    turnPlayer.textContent = data.turnPlayer;
+    guessRole.textContent = data.nextRole;
+    renderScoreboard(data.scoreboard);
+    guessInput.innerHTML = "";
+    data.scoreboard.forEach(p => {
+      if (p.name !== playerName && !data.locked?.includes(p.name)) {
+        const option = document.createElement("option");
+        option.value = p.name;
+        option.textContent = p.name;
+        guessInput.appendChild(option);
+      }
+    });
+    guessInput.disabled = false;
   }
 
   if (data.type === "game_over") {
-    $("gameCard").classList.add("hidden");
-    $("endCard").classList.remove("hidden");
-    $("finalRound").textContent = data.round;
-    $("finalLog").innerHTML = data.log.map(line => `<p>${line}</p>`).join("");
-    const table = `<table><tr><th>Rank</th><th>Name</th><th>Score</th></tr>` +
-      data.scoreboard.map((p, i) => `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.score}</td></tr>`).join("") +
-      `</table>`;
-    $("finalScores").innerHTML = table;
+    finalRound.textContent = data.round;
+    finalLog.innerHTML = data.log.map(l => `<p>${l}</p>`).join("");
+    renderScoreboard(data.scoreboard);
+    showCard(endCard);
   }
+
+  if (data.type === "error") {
+    alert(data.message);
+  }
+
+  if (data.type === "chat") {
+    // Chat can be implemented later here
+  }
+};
+
+document.getElementById("roleFlipCard").addEventListener("mouseleave", () => {
+  flipCard.classList.remove("flipped");
 });
