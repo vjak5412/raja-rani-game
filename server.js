@@ -79,7 +79,7 @@ wss.on("connection", (ws) => {
         });
       }
 
-      // Start Game (Admin Only)
+      // Start Game
       if (data.type === "start_game") {
         const room = rooms[data.roomCode];
         if (!room || room.adminId !== data.id) return;
@@ -92,7 +92,7 @@ wss.on("connection", (ws) => {
         room.chainIndex = 0;
         room.stage = "playing";
         room.chainLog = [];
-        room.recentSwap = {}; // Reset
+        room.recentSwap = {};
         room.lockedPlayers.clear();
 
         players.forEach(p => {
@@ -106,6 +106,7 @@ wss.on("connection", (ws) => {
 
         const rajaIndex = players.findIndex(p => p.role === "Raja");
         room.currentTurn = rajaIndex;
+
         broadcast(data.roomCode, {
           type: "start_chain",
           nextRole: roleMap[players.length][1],
@@ -119,17 +120,19 @@ wss.on("connection", (ws) => {
       if (data.type === "guess") {
         const room = rooms[data.roomCode];
         if (!room) return;
+
         const players = room.players;
         const guesser = players.find(p => p.id === data.id);
         const guessed = players.find(p => p.name === data.guess);
         const currentRole = roleMap[players.length][room.chainIndex + 1];
         const actual = players.find(p => p.role === currentRole);
 
-        // Prevent invalid or duplicate guesses
-        if (!guessed || room.lockedPlayers.has(guesser.name) || room.lockedPlayers.has(guessed.name)) return;
-        if (room.recentSwap[guesser.name] === guessed.name) return; // block back-to-back
+        if (!guesser || !guessed) return;
+        if (room.lockedPlayers.has(guesser.name) || room.lockedPlayers.has(guessed.name)) return;
+        if (room.recentSwap[guesser.name] === guessed.name) return;
 
         let logLine = '';
+
         if (guessed.role === currentRole) {
           guesser.score += rolePoints[currentRole];
           logLine = `${guesser.name} guessed correctly! ${guessed.name} is ${currentRole}.`;
@@ -138,7 +141,7 @@ wss.on("connection", (ws) => {
           room.chainIndex++;
           room.currentTurn = players.findIndex(p => p.name === guessed.name);
         } else {
-          logLine = `${guesser.name} guessed wrong. ${guessed.name} is not ${currentRole}. They swap roles.`;
+          logLine = `${guesser.name} guessed wrong. ${guessed.name} is not ${currentRole}. Roles swapped.`;
           [guesser.role, guessed.role] = [guessed.role, guesser.role];
           room.recentSwap[guessed.name] = guesser.name;
           room.currentTurn = players.findIndex(p => p.name === guessed.name);
@@ -146,12 +149,12 @@ wss.on("connection", (ws) => {
 
         room.chainLog.push(logLine);
 
-        // End round?
         if (room.chainIndex >= roleMap[players.length].length - 1) {
           players.forEach(p => {
-            const roleScore = rolePoints[p.role] || 0;
-            p.score += roleScore;
+            const bonus = rolePoints[p.role] || 0;
+            p.score += bonus;
           });
+
           broadcast(data.roomCode, {
             type: "game_over",
             log: room.chainLog,
@@ -171,7 +174,7 @@ wss.on("connection", (ws) => {
         }
       }
 
-      // Start Next Round (Admin Only)
+      // Start Next Round
       if (data.type === "start_next_round") {
         const room = rooms[data.roomCode];
         if (!room || room.adminId !== data.id || room.round >= room.maxRounds) return;
@@ -233,8 +236,12 @@ wss.on("connection", (ws) => {
 });
 
 function getSortedScoreboard(players) {
-  return players.slice().sort((a, b) => b.score - a.score).map(p => ({
-    name: p.name,
-    score: p.score
-  }));
+  return players
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .map((p, i) => ({
+      rank: i + 1,
+      name: p.name,
+      score: p.score
+    }));
 }
