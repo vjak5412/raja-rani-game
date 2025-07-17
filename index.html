@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Raja Rani - Multiplayer Game</title>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     body {
@@ -21,7 +21,7 @@
       background: white;
       border-radius: 16px;
       padding: 30px;
-      max-width: 600px;
+      max-width: 500px;
       width: 100%;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
       animation: fadeInUp 0.5s ease;
@@ -50,6 +50,7 @@
       background: linear-gradient(to right, #7b1fa2, #303f9f);
     }
     .hidden { display: none; }
+
     .scoreboard {
       margin-top: 20px;
       background: #f0f0ff;
@@ -57,17 +58,26 @@
       padding: 15px;
       font-size: 14px;
       overflow-x: auto;
-      max-height: 260px;
     }
     .scoreboard table {
       width: 100%;
       border-collapse: collapse;
+      font-size: 14px;
     }
     .scoreboard th, .scoreboard td {
       border: 1px solid #ccc;
-      padding: 6px;
+      padding: 8px;
       text-align: center;
     }
+
+    ul#playerList {
+      list-style: none;
+      padding-left: 0;
+    }
+    ul#playerList li {
+      padding: 4px;
+    }
+
     .flip-card {
       perspective: 1000px;
     }
@@ -91,6 +101,17 @@
     .flipped .flip-card-inner {
       transform: rotateY(180deg);
     }
+
+    #chatBox {
+      border: 1px solid #ccc;
+      height: 100px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding: 5px;
+      font-size: 13px;
+      background: #fff8;
+    }
+
     @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -99,81 +120,59 @@
 </head>
 <body>
 
-<!-- Setup -->
-<div class="card" id="setupCard">
-  <h2>Raja Rani - Online</h2>
-  <input id="playerName" placeholder="Enter your name"/>
-  <button onclick="createRoom()">Create Room</button>
-  <input id="joinCode" placeholder="Or enter room code to join"/>
-  <button onclick="joinRoom()">Join Room</button>
-</div>
+  <!-- Join/Create -->
+  <div class="card" id="setupCard">
+    <h2>Raja Rani - Online</h2>
+    <input id="playerName" placeholder="Enter your name" />
+    <button onclick="createRoom()">Create Room</button>
+    <input id="joinCode" placeholder="Or enter room code to join" />
+    <button onclick="joinRoom()">Join Room</button>
+  </div>
 
-<!-- Waiting -->
-<div class="card hidden" id="waitingCard">
-  <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
-  <ul id="playerList"></ul>
-  <button id="startGameBtn" onclick="startGame()">Start Game</button>
-</div>
+  <!-- Waiting Room -->
+  <div class="card hidden" id="waitingCard">
+    <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
+    <ul id="playerList"></ul>
+    <button onclick="startGame()">Start Game</button>
+  </div>
 
-<!-- Role Reveal -->
-<div class="card hidden" id="roleCard">
-  <h2>Hello <span id="nameDisplay"></span></h2>
-  <p>Round <span id="roundNum1"></span></p>
-  <div class="flip-card" id="roleFlipCard" onmouseleave="unflipCard()">
-    <div class="flip-card-inner" id="flipInner">
-      <div class="flip-card-front">
-        <p>Click below to view your role</p>
-        <button onclick="flipCard()">View My Role</button>
-      </div>
-      <div class="flip-card-back">
-        <p>Your Role: <strong id="yourRole"></strong></p>
+  <!-- Role Reveal -->
+  <div class="card hidden" id="roleCard">
+    <h2>Hello <span id="nameDisplay"></span></h2>
+    <p>Round <span id="roundNum1"></span></p>
+    <div class="flip-card" id="roleFlipCard" onmouseleave="hideRoleCard()">
+      <div class="flip-card-inner" id="roleFlipCardInner">
+        <div class="flip-card-front">
+          <p>Click below to view your role</p>
+          <button onclick="flipCard()">View My Role</button>
+        </div>
+        <div class="flip-card-back">
+          <p>Your Role: <strong id="yourRole"></strong></p>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Game Area -->
-<div class="card hidden" id="gameCard">
-  <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
-  <p>Guess who is <strong id="guessRole">Rani</strong></p>
-  <select id="guessInput"></select>
-  <button onclick="makeGuess()">Submit Guess</button>
+  <!-- Game Area -->
+  <div class="card hidden" id="gameCard">
+    <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
+    <p>Guess who is <strong id="guessRole">Rani</strong></p>
+    <select id="guessInput"></select>
+    <button onclick="makeGuess()">Submit Guess</button>
 
-  <div class="scoreboard" id="scoreboardBox"></div>
-  <div class="scoreboard" id="logBox"></div>
-</div>
+    <div class="scoreboard" id="scoreboardBox"></div>
+    <div id="logBox" class="scoreboard"></div>
+    <div id="chatBox"></div>
+  </div>
 
-<!-- Game Over -->
-<div class="card hidden" id="endCard">
-  <h2>Game Over - Round <span id="finalRound"></span></h2>
-  <div id="finalLog" class="scoreboard"></div>
-  <div id="finalScores" class="scoreboard"></div>
-  <button id="startNextBtn" onclick="startNextRound()">Start Next Round</button>
-</div>
+  <!-- Game Over -->
+  <div class="card hidden" id="endCard">
+    <h2>Game Over - Round <span id="finalRound"></span></h2>
+    <div id="finalLog" class="scoreboard"></div>
+    <div id="finalScores" class="scoreboard"></div>
+    <button onclick="startNextRound()">Start Next Round</button>
+  </div>
 
-<script src="./client.js"></script>
-<script>
-  let isAdmin = false; // Set via client.js logic after join/create
-
-  function flipCard() {
-    const flip = document.getElementById('roleFlipCard');
-    flip.classList.add('flipped');
-    setTimeout(() => {
-      unflipCard();
-    }, 3000);
-  }
-
-  function unflipCard() {
-    document.getElementById('roleFlipCard').classList.remove('flipped');
-  }
-
-  // Called from client.js after user is set
-  function setAdminMode(adminFlag) {
-    isAdmin = adminFlag;
-    document.getElementById("startGameBtn").style.display = isAdmin ? 'block' : 'none';
-    document.getElementById("startNextBtn").style.display = isAdmin ? 'block' : 'none';
-  }
-</script>
-
+  <script src="./client.js"></script>
 </body>
 </html>
