@@ -1,7 +1,3 @@
-   }
-  });
-});
-          
 // server.js — FINAL VERSION with role logic, swap prevention, scoring, cleanup
 
 const WebSocket = require('ws');
@@ -198,5 +194,4 @@ function startRound(room) {
 
 function nextTurn(room, newPlayerName) {
   room.turnPlayer = newPlayerName;
-          }
-                                           
+}
