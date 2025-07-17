@@ -6,10 +6,19 @@
   "scripts": {
     "start": "node server.js"
   },
-  "author": "Your Name",
-  "license": "MIT",
   "dependencies": {
     "uuid": "^9.0.0",
     "ws": "^8.13.0"
-  }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "websocket",
+    "raja-rani",
+    "multiplayer",
+    "game"
+  ],
+  "author": "Vignesh S",
+  "license": "ISC"
 }
