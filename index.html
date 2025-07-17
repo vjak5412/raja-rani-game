@@ -21,7 +21,7 @@
       background: white;
       border-radius: 16px;
       padding: 30px;
-      max-width: 600px;
+      max-width: 700px;
       width: 100%;
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
       animation: fadeInUp 0.5s ease;
@@ -68,7 +68,7 @@
       padding: 15px;
       font-size: 14px;
       overflow-x: auto;
-      max-height: 240px;
+      max-height: 300px;
     }
     .scoreboard table {
       width: 100%;
@@ -112,7 +112,6 @@
 </head>
 <body>
 
-  <!-- Setup Screen -->
   <div class="card" id="setupCard">
     <h2>Raja Rani - Online Game</h2>
     <input id="playerName" placeholder="Enter your name" />
@@ -121,7 +120,6 @@
     <button onclick="joinRoom()">Join Room</button>
   </div>
 
-  <!-- Waiting Room -->
   <div class="card hidden" id="waitingCard">
     <h2>Room Code: <span id="roomCodeDisplay"></span></h2>
     <h3>Players Joined:</h3>
@@ -129,7 +127,6 @@
     <button onclick="startGame()">Start Game</button>
   </div>
 
-  <!-- Role Reveal Card -->
   <div class="card hidden" id="roleCard">
     <h2>Hello <span id="nameDisplay"></span></h2>
     <p>Round <span id="roundNum1"></span></p>
@@ -146,7 +143,6 @@
     </div>
   </div>
 
-  <!-- Game Area -->
   <div class="card hidden" id="gameCard">
     <h2>Round <span id="roundNum2"></span> - Turn: <span id="turnPlayer"></span></h2>
     <p>Guess who is <strong id="guessRole">Rani</strong></p>
@@ -156,7 +152,6 @@
     <div id="logBox" class="scoreboard"></div>
   </div>
 
-  <!-- Game Over -->
   <div class="card hidden" id="endCard">
     <h2>Game Over - Round <span id="finalRound"></span></h2>
     <div id="finalLog" class="scoreboard"></div>
@@ -164,13 +159,13 @@
     <button onclick="startNextRound()">Start Next Round</button>
   </div>
 
-  <!-- Future Chat Section (Optional) -->
-  <!-- <div id="chatBox" class="scoreboard hidden">
+  <!-- Chat Section -->
+  <div class="card hidden" id="chatBox">
     <h3>Live Chat</h3>
-    <div id="chatMessages"></div>
-    <input id="chatInput" placeholder="Type a message..." />
+    <div id="chatMessages" style="height:150px; overflow-y:auto; border:1px solid #ccc; padding:10px; margin-bottom:10px;"></div>
+    <input id="chatInput" placeholder="Type a message..."/>
     <button onclick="sendChat()">Send</button>
-  </div> -->
+  </div>
 
   <script src="./client.js"></script>
 </body>
