@@ -1,45 +1,34 @@
-// client.js — Updated with Full Fixes
+// client.js - Raja Rani Game
 const socket = new WebSocket("wss://raja-rani-game-bw0r.onrender.com");
-let playerId = crypto.randomUUID();
+
 let playerName = "";
+let playerId = crypto.randomUUID();
 let roomCode = "";
 let isAdmin = false;
+let currentRole = "";
+let allPlayers = [];
 
-const setupCard = document.getElementById("setupCard");
-const waitingCard = document.getElementById("waitingCard");
-const roleCard = document.getElementById("roleCard");
-const gameCard = document.getElementById("gameCard");
-const endCard = document.getElementById("endCard");
-
-const nameDisplay = document.getElementById("nameDisplay");
-const roundNum1 = document.getElementById("roundNum1");
-const roundNum2 = document.getElementById("roundNum2");
-const turnPlayer = document.getElementById("turnPlayer");
-const guessRole = document.getElementById("guessRole");
-const guessInput = document.getElementById("guessInput");
-const scoreboardBox = document.getElementById("scoreboardBox");
-const logBox = document.getElementById("logBox");
-const finalLog = document.getElementById("finalLog");
-const finalScores = document.getElementById("finalScores");
-const yourRole = document.getElementById("yourRole");
-const roleFlipCard = document.getElementById("roleFlipCard");
-const roomCodeDisplay = document.getElementById("roomCodeDisplay");
-const playerList = document.getElementById("playerList");
+function $(id) {
+  return document.getElementById(id);
+}
 
 function createRoom() {
-  playerName = document.getElementById("playerName").value;
-  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
+  playerName = $("playerName").value.trim();
+  if (!playerName) return alert("Enter a name");
   isAdmin = true;
+  socket.send(JSON.stringify({ type: "create_room", name: playerName, id: playerId }));
 }
 
 function joinRoom() {
-  playerName = document.getElementById("playerName").value;
-  roomCode = document.getElementById("joinCode").value;
+  playerName = $("playerName").value.trim();
+  const code = $("joinCode").value.trim();
+  if (!playerName || !code) return alert("Enter name and code");
+  roomCode = code;
   socket.send(JSON.stringify({ type: "join_room", name: playerName, roomCode, id: playerId }));
-  isAdmin = false;
 }
 
 function startGame() {
+  if (!isAdmin) return;
   socket.send(JSON.stringify({ type: "start_game", roomCode, id: playerId }));
 }
 
@@ -48,88 +37,101 @@ function startNextRound() {
 }
 
 function makeGuess() {
-  const guess = guessInput.value;
+  const guess = $("guessInput").value;
+  if (!guess) return alert("Choose a player");
   socket.send(JSON.stringify({ type: "guess", roomCode, id: playerId, guess }));
 }
 
 function flipCard() {
-  roleFlipCard.classList.add("flipped");
-  setTimeout(() => {
-    roleFlipCard.classList.remove("flipped");
-  }, 3000);
+  const card = document.getElementById("roleFlipCardInner");
+  card.classList.add("flipped");
+  setTimeout(() => card.classList.remove("flipped"), 3000);
 }
 
-function populateScoreboard(scoreboard) {
-  scoreboardBox.innerHTML = `<table><tr><th>Player</th><th>Score</th></tr>` +
-    scoreboard.map(s => `<tr><td>${s.name}</td><td>${s.score}</td></tr>`).join("") + "</table>";
+function hideRoleCard() {
+  $("roleFlipCardInner").classList.remove("flipped");
 }
 
-function populateDropdown(players, locked, recentSwap) {
-  guessInput.innerHTML = "";
-  players.forEach(name => {
-    if (!locked.includes(name) && recentSwap !== name && name !== playerName) {
+function updateScoreboard(scoreboard) {
+  const div = $("scoreboardBox");
+  div.innerHTML = "<table><tr><th>Rank</th><th>Name</th><th>Score</th></tr>" +
+    scoreboard.map((p, i) => `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.score}</td></tr>`).join("") +
+    "</table>";
+}
+
+function updateDropdown(locked) {
+  const select = $("guessInput");
+  select.innerHTML = "<option value='' disabled selected>Select player</option>";
+  allPlayers.forEach(p => {
+    if (p !== playerName && !locked.includes(p)) {
       const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      guessInput.appendChild(opt);
+      opt.value = p;
+      opt.textContent = p;
+      select.appendChild(opt);
     }
   });
-  guessInput.disabled = guessInput.children.length === 0;
 }
 
-function show(card) {
-  [setupCard, waitingCard, roleCard, gameCard, endCard].forEach(c => c.classList.add("hidden"));
-  card.classList.remove("hidden");
-}
-
-socket.onmessage = (msg) => {
-  const data = JSON.parse(msg.data);
+socket.addEventListener("message", (e) => {
+  const data = JSON.parse(e.data);
 
   if (data.type === "room_created") {
     roomCode = data.roomCode;
-    roomCodeDisplay.textContent = roomCode;
-    show(waitingCard);
+    $("setupCard").classList.add("hidden");
+    $("waitingCard").classList.remove("hidden");
+    $("roomCodeDisplay").textContent = roomCode;
   }
 
   if (data.type === "player_joined") {
-    playerList.innerHTML = data.players.map(p => `<li>${p}</li>`).join("");
-    roomCodeDisplay.textContent = roomCode;
-    show(waitingCard);
+    allPlayers = data.players;
+    const list = $("playerList");
+    list.innerHTML = "";
+    data.players.forEach(name => {
+      const li = document.createElement("li");
+      li.textContent = name;
+      if (isAdmin && name === playerName) li.innerHTML += " <strong>(Admin)</strong>";
+      list.appendChild(li);
+    });
+    if (!$("setupCard").classList.contains("hidden")) {
+      $("setupCard").classList.add("hidden");
+      $("waitingCard").classList.remove("hidden");
+    }
   }
 
   if (data.type === "your_role") {
-    nameDisplay.textContent = data.name;
-    roundNum1.textContent = data.round;
-    yourRole.textContent = data.role;
-    show(roleCard);
+    $("waitingCard").classList.add("hidden");
+    $("roleCard").classList.remove("hidden");
+    $("yourRole").textContent = data.role;
+    $("nameDisplay").textContent = data.name;
+    $("roundNum1").textContent = data.round;
+    currentRole = data.role;
   }
 
   if (data.type === "start_chain") {
-    roundNum2.textContent = data.round;
-    turnPlayer.textContent = data.turnPlayer;
-    guessRole.textContent = data.nextRole;
-    populateScoreboard(data.scoreboard);
-    show(gameCard);
+    $("roleCard").classList.add("hidden");
+    $("gameCard").classList.remove("hidden");
+    $("roundNum2").textContent = data.round;
+    $("guessRole").textContent = data.nextRole;
+    $("turnPlayer").textContent = data.turnPlayer;
+    updateScoreboard(data.scoreboard);
   }
 
   if (data.type === "chain_update") {
-    turnPlayer.textContent = data.turnPlayer;
-    guessRole.textContent = data.nextRole;
-    logBox.innerHTML = data.log.map(line => `<div>${line}</div>`).join("");
-    populateScoreboard(data.scoreboard);
-    populateDropdown(data.scoreboard.map(s => s.name), data.locked, null);
+    $("logBox").innerHTML = data.log.map(line => `<p>${line}</p>`).join("");
+    $("guessRole").textContent = data.nextRole;
+    $("turnPlayer").textContent = data.turnPlayer;
+    updateScoreboard(data.scoreboard);
+    updateDropdown(data.locked);
   }
 
   if (data.type === "game_over") {
-    finalLog.innerHTML = data.log.map(line => `<div>${line}</div>`).join("");
-    finalScores.innerHTML = `<table><tr><th>Player</th><th>Score</th></tr>` +
-      data.scoreboard.map(s => `<tr><td>${s.name}</td><td>${s.score}</td></tr>`).join("") + "</table>";
-    document.getElementById("finalRound").textContent = data.round;
-    show(endCard);
-    if (!data.canStartNext || !isAdmin) {
-      document.querySelector("#endCard button").disabled = true;
-    } else {
-      document.querySelector("#endCard button").disabled = false;
-    }
+    $("gameCard").classList.add("hidden");
+    $("endCard").classList.remove("hidden");
+    $("finalRound").textContent = data.round;
+    $("finalLog").innerHTML = data.log.map(line => `<p>${line}</p>`).join("");
+    const table = `<table><tr><th>Rank</th><th>Name</th><th>Score</th></tr>` +
+      data.scoreboard.map((p, i) => `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.score}</td></tr>`).join("") +
+      `</table>`;
+    $("finalScores").innerHTML = table;
   }
-};
+});
