@@ -1,7 +1,7 @@
 {
-  "name": "raja-rani-online",
+  "name": "raja-rani-multiplayer-game",
   "version": "1.0.0",
-  "description": "Multiplayer Raja Rani Game with roles, real-time guessing, chat, scoring, and round logic",
+  "description": "Online Multiplayer Raja Rani Game with WebSocket, role swapping, scoring, and real-time scoreboard",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,19 +10,17 @@
     "raja",
     "rani",
     "multiplayer",
-    "websocket",
     "game",
-    "nodejs",
-    "express",
-    "realtime"
+    "websocket",
+    "nodejs"
   ],
   "author": "Vignesh S",
-  "license": "MIT",
+  "license": "ISC",
   "dependencies": {
-    "uuid": "^9.0.0",
-    "ws": "^8.15.1"
+    "uuid": "^9.0.1",
+    "ws": "^8.13.0"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=16.0.0"
   }
 }
